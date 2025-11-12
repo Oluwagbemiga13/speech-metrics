@@ -1,0 +1,17 @@
+spring:
+  datasource:
+    # default to host.docker.internal which works on Docker Desktop for Windows; override with DEV_DB_URL env var if needed
+    url: ${DEV_DB_URL:jdbc:postgresql://host.docker.internal:5432/speech_metrics_db}
+    username: postgres
+    password: postgres
+    hikari:
+      # do not fail the application immediately if DB is not yet available; Hikari will retry
+      initialization-fail-timeout: -1
+      connection-timeout: 30000
+      maximum-pool-size: 10
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
+

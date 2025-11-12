@@ -76,6 +76,11 @@
             <version>2.8.14</version>
         </dependency>
 
+        <dependency>
+            <groupId>org.mapstruct</groupId>
+            <artifactId>mapstruct</artifactId>
+            <version>${org.mapstruct.version}</version>
+        </dependency>
 
         <!-- Apache Commons IO for audio‐stream handling -->
         <dependency>

@@ -1,4 +1,30 @@
 package cz.oluwagbemiga.speech_metric.entity;
 
+import jakarta.persistence.*;
+import lombok.Data;
+
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+@Entity
+@Table(name = "audio_files")
+@Data
 public class AudioFile {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
+
+    private String fileName;
+
+    private LocalDateTime createdAt;
+
+    @Lob
+    @Column(nullable = false)
+    private byte[] data;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User owner;
+
 }

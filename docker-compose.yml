@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: speech_metrics_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+
+
+volumes:
+  db-data:
+
+# Notes:
+# - This compose file builds the backend image from the provided Dockerfile and runs a Postgres DB.
+# - The React frontend is intentionally excluded; use Swagger UI (http://localhost:8080/swagger-ui/index.html) to exercise the API.
+# - If you plan to use a CLI engine, ensure any referenced scripts under ./bin exist and are executable, or update engines paths in application.yaml.
+# - Uploaded audio files will be saved to ./data/audio on the host (mounted into the container).
