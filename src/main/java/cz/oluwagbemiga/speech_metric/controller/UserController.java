@@ -2,16 +2,16 @@ package cz.oluwagbemiga.speech_metric.controller;
 
 import cz.oluwagbemiga.speech_metric.dto.UserDTO;
 import cz.oluwagbemiga.speech_metric.service.UserService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.util.List;
 
@@ -23,7 +23,6 @@ import java.util.List;
 public class UserController {
 
     private final UserService userService;
-
 
 
     @PostMapping
@@ -66,5 +65,5 @@ public class UserController {
         userService.deleteUserByUsername(username);
         return ResponseEntity.noContent().build();
     }
-    
+
 }

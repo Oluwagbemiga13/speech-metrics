@@ -17,7 +17,7 @@ public class AudioFile {
 
     private String fileName;
 
-    private LocalDateTime createdAt;
+    private LocalDateTime createdAt = LocalDateTime.now();
 
     @Lob
     @Column(nullable = false)

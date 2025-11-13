@@ -6,8 +6,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 @SpringBootApplication
 public class SpeechMetricApplication {
 
-	public static void main(String[] args) {
-		SpringApplication.run(SpeechMetricApplication.class, args);
-	}
+    public static void main(String[] args) {
+        SpringApplication.run(SpeechMetricApplication.class, args);
+    }
 
 }
