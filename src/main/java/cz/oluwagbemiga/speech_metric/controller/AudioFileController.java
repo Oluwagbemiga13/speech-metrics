@@ -1,6 +1,7 @@
 package cz.oluwagbemiga.speech_metric.controller;
 
 import cz.oluwagbemiga.speech_metric.dto.UserDTO;
+import cz.oluwagbemiga.speech_metric.dto.AudioFileDto;
 import cz.oluwagbemiga.speech_metric.service.AudioFileService;
 import cz.oluwagbemiga.speech_metric.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -44,12 +45,21 @@ public class AudioFileController {
     @Operation(summary = "Download audio file by ID")
     @ApiResponse(responseCode = "200", description = "File bytes returned")
     public ResponseEntity<byte[]> download(@PathVariable UUID id) {
-        byte[] content = audioFileService.getContentById(id);
-        String fileName = audioFileService.getFileName(id);
+        AudioFileDto file = audioFileService.getDtoById(id);
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
-        headers.setContentDispositionFormData("attachment", fileName);
-        return new ResponseEntity<>(content, headers, HttpStatus.OK);
+        headers.setContentDispositionFormData("attachment", file.fileName());
+        return new ResponseEntity<>(file.data(), headers, HttpStatus.OK);
+    }
+
+    // Get audio file DTO by ID
+    @GetMapping("/audio-files/{id}/dto")
+    @Operation(summary = "Get audio file DTO by ID",
+            description = "Returns audio file metadata and content (base64-encoded) as JSON")
+    @ApiResponse(responseCode = "200", description = "Audio file DTO returned",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = AudioFileDto.class)))
+    public ResponseEntity<AudioFileDto> getDto(@PathVariable UUID id) {
+        return ResponseEntity.ok(audioFileService.getDtoById(id));
     }
 
     // List: all audio file IDs for a user
@@ -58,6 +68,16 @@ public class AudioFileController {
     @ApiResponse(responseCode = "200", description = "List of audio file IDs")
     public ResponseEntity<List<UUID>> listByUser(@PathVariable UUID userId) {
         return ResponseEntity.ok(audioFileService.getIdsByUserId(userId));
+    }
+
+    // List: all audio files for a user as DTOs
+    @GetMapping("/users/{userId}/audio-files/dto")
+    @Operation(summary = "List a user's audio files as DTOs",
+            description = "Returns all audio files for the user, including metadata and base64-encoded content")
+    @ApiResponse(responseCode = "200", description = "List of AudioFileDto returned",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = AudioFileDto.class)))
+    public ResponseEntity<List<AudioFileDto>> listDtosByUser(@PathVariable UUID userId) {
+        return ResponseEntity.ok(audioFileService.getDtosByUserId(userId));
     }
 
     // Delete: delete audio file by ID
