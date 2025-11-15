@@ -1,7 +1,6 @@
 spring:
   datasource:
-    # default to host.docker.internal which works on Docker Desktop for Windows; override with DEV_DB_URL env var if needed
-    url: ${DEV_DB_URL:jdbc:postgresql://host.docker.internal:5432/speech_metrics_db}
+    url: ${DEV_DB_URL:jdbc:postgresql://localhost:5432/speech_metrics_db}
     username: postgres
     password: postgres
     hikari:
@@ -13,5 +12,15 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: true
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+  validation:
+    fail-fast: false
 
-
+# Vosk model paths for IDE/dev: force local source-tree paths (ignore env overrides)
+speech:
+  vosk:
+    large-model-path: ${user.dir}/src/main/resources/model/vosk-model-en-us-0.22-lgraph
+    small-model-path: ${user.dir}/src/main/resources/model/vosk-model-small-en-us-0.15

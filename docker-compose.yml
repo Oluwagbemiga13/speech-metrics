@@ -9,13 +9,34 @@ services:
       - "5432:5432"
     volumes:
       - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d speech_metrics_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/speech_metrics_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      # Optional: override model paths if you mount models instead of copying
+      # VOSK_LARGE_MODEL_PATH: /app/models/vosk-model-en-us-0.22-lgraph
+      # VOSK_SMALL_MODEL_PATH: /app/models/vosk-model-small-en-us-0.15
+    ports:
+      - "8080:8080"
+    # If you prefer mounting models instead of baking them into the image, uncomment:
+    # volumes:
+    #   - ./src/main/resources/model:/app/models:ro
 
 volumes:
   db-data:
 
 # Notes:
-# - This compose file builds the backend image from the provided Dockerfile and runs a Postgres DB.
-# - The React frontend is intentionally excluded; use Swagger UI (http://localhost:8080/swagger-ui/index.html) to exercise the API.
-# - If you plan to use a CLI engine, ensure any referenced scripts under ./bin exist and are executable, or update engines paths in application.yaml.
-# - Uploaded audio files will be saved to ./data/audio on the host (mounted into the container).
+# - 'app' waits for 'db' to be healthy before starting.
+# - Default app config already points DB URL to jdbc:postgresql://db:5432/...
+# - Run with: docker compose up --build

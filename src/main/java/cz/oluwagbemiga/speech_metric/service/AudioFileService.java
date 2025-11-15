@@ -1,6 +1,6 @@
 package cz.oluwagbemiga.speech_metric.service;
 
-import cz.oluwagbemiga.speech_metric.dto.AudioFileDto;
+import cz.oluwagbemiga.speech_metric.dto.AudioFileDTO;
 import cz.oluwagbemiga.speech_metric.entity.AudioFile;
 import cz.oluwagbemiga.speech_metric.exception.FileNotExist;
 import cz.oluwagbemiga.speech_metric.mapper.AudioFileMapper;
@@ -34,7 +34,7 @@ public class AudioFileService {
     }
 
     @Transactional(readOnly = true)
-    public AudioFileDto getDtoById(UUID id) {
+    public AudioFileDTO getDtoById(UUID id) {
         var entity = audioFileRepository.findById(id)
                 .orElseThrow(() -> new FileNotExist(id.toString()));
         return audioFileMapper.toDto(entity);
@@ -70,8 +70,13 @@ public class AudioFileService {
     }
 
     @Transactional(readOnly = true)
-    public List<AudioFileDto> getDtosByUserId(UUID userId) {
+    public List<AudioFileDTO> getDtosByUserId(UUID userId) {
         var files = audioFileRepository.findAllByOwner_Id(userId);
         return audioFileMapper.toDto(files);
+    }
+
+    @Transactional
+    public AudioFile save(AudioFile audioFile) {
+        return audioFileRepository.saveAndFlush(audioFile);
     }
 }

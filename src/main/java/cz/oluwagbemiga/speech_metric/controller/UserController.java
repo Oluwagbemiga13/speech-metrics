@@ -6,7 +6,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -27,11 +26,10 @@ public class UserController {
 
     @PostMapping
     @Operation(summary = "Create a new user", description = "Creates a user and returns the created user wrapped in a response object.")
-    @ApiResponses({
-            @ApiResponse(responseCode = "201", description = "User created",
-                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = ResponseEntity.class))),
-            @ApiResponse(responseCode = "400", description = "Invalid request")
-    })
+    @ApiResponse(responseCode = "201", description = "User created",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ResponseEntity.class)))
+    @ApiResponse(responseCode = "400", description = "Invalid request")
+
     public ResponseEntity<UserDTO> createUser(@Valid @RequestParam String username) {
         var saved = userService.saveUser(username);
         return ResponseEntity.status(201).body(saved);
@@ -47,20 +45,18 @@ public class UserController {
     // Get a user by username
     @GetMapping("/{username}")
     @Operation(summary = "Get a user by username", description = "Returns a single user by username.")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "User found"),
-            @ApiResponse(responseCode = "404", description = "User not found")
-    })
+    @ApiResponse(responseCode = "200", description = "User found")
+    @ApiResponse(responseCode = "404", description = "User not found")
     public ResponseEntity<UserDTO> getUser(@PathVariable String username) {
         return ResponseEntity.ok(userService.getUserByUsername(username));
     }
 
     @DeleteMapping("/{username}")
     @Operation(summary = "Delete a user", description = "Deletes a user by username.")
-    @ApiResponses({
-            @ApiResponse(responseCode = "204", description = "User deleted"),
-            @ApiResponse(responseCode = "404", description = "User not found")
-    })
+
+    @ApiResponse(responseCode = "204", description = "User deleted")
+    @ApiResponse(responseCode = "404", description = "User not found")
+
     public ResponseEntity<Void> deleteUser(@PathVariable String username) {
         userService.deleteUserByUsername(username);
         return ResponseEntity.noContent().build();

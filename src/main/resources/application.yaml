@@ -11,9 +11,9 @@ spring:
       max-file-size: 10MB
       max-request-size: 10MB
   datasource:
-    url: jdbc:postgresql://localhost:5432/speech_metrics_db
-    username: postgres
-    password: postgres
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://db:5432/speech_metrics_db}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
   jpa:
     hibernate:
       ddl-auto: update
@@ -21,3 +21,9 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+
+# Vosk model paths (can be overridden with env vars)
+speech:
+  vosk:
+    large-model-path: ${VOSK_LARGE_MODEL_PATH:/app/models/vosk-model-en-us-0.22-lgraph}
+    small-model-path: ${VOSK_SMALL_MODEL_PATH:/app/models/vosk-model-small-en-us-0.15}

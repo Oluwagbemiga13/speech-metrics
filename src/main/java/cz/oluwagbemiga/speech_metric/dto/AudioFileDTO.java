@@ -5,7 +5,7 @@ import java.util.Arrays;
 import java.util.Objects;
 import java.util.UUID;
 
-public record AudioFileDto(
+public record AudioFileDTO(
         UUID id,
         String fileName,
         byte[] data,
@@ -24,7 +24,7 @@ public record AudioFileDto(
     @Override
     public boolean equals(Object o) {
         if (o == null || getClass() != o.getClass()) return false;
-        AudioFileDto that = (AudioFileDto) o;
+        AudioFileDTO that = (AudioFileDTO) o;
         return Objects.equals(id, that.id) && Objects.deepEquals(data, that.data) && Objects.equals(fileName, that.fileName) && Objects.equals(createdAt, that.createdAt);
     }
 
