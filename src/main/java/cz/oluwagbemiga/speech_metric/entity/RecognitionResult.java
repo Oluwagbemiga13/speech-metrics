@@ -25,4 +25,8 @@ public class RecognitionResult {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private User owner;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "recognition_suite_id")
+    private RecognitionSuite recognitionSuite;
 }

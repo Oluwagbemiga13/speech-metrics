@@ -1,7 +1,7 @@
 package cz.oluwagbemiga.speech_metric.controller;
 
 import cz.oluwagbemiga.speech_metric.dto.AudioFileDTO;
-import cz.oluwagbemiga.speech_metric.dto.UserDTO;
+import cz.oluwagbemiga.speech_metric.dto.UploadResponse;
 import cz.oluwagbemiga.speech_metric.service.AudioFileService;
 import cz.oluwagbemiga.speech_metric.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -32,12 +32,12 @@ public class AudioFileController {
     // Create: upload an audio file for a user. Returns updated UserDTO containing audioFileIds.
     @PostMapping(path = "/users/{userId}/audio-files", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Upload audio file for a user",
-            description = "Uploads a single audio file for the given user and returns the updated user, including audioFileIds.")
+            description = "Uploads a single audio file for the given user and returns the UploadResponse.")
     @ApiResponse(responseCode = "201", description = "File uploaded",
-            content = @Content(mediaType = "application/json", schema = @Schema(implementation = UserDTO.class)))
-    public ResponseEntity<UserDTO> upload(@PathVariable UUID userId, @RequestPart("file") MultipartFile file) {
-        UserDTO updated = userService.addFileToUser(userId, file);
-        return ResponseEntity.status(HttpStatus.CREATED).body(updated);
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = UploadResponse.class)))
+    public ResponseEntity<UploadResponse> upload(@PathVariable UUID userId, @RequestPart("file") MultipartFile file) {
+        UploadResponse response = userService.addFileToUser(userId, file);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     // Read: download raw file bytes by ID

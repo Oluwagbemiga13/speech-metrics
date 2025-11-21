@@ -109,6 +109,13 @@
             <version>1.7.36</version>
         </dependency>
 
+        <!-- https://mvnrepository.com/artifact/io.github.ggerganov/whispercpp -->
+        <dependency>
+            <groupId>io.github.ggerganov</groupId>
+            <artifactId>whispercpp</artifactId>
+            <version>1.4.0</version>
+        </dependency>
+
 
     </dependencies>
 

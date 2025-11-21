@@ -1,10 +1,12 @@
 package cz.oluwagbemiga.speech_metric.service;
 
+import cz.oluwagbemiga.speech_metric.dto.UploadResponse;
 import cz.oluwagbemiga.speech_metric.dto.UserDTO;
 import cz.oluwagbemiga.speech_metric.entity.AudioFile;
 import cz.oluwagbemiga.speech_metric.entity.User;
 import cz.oluwagbemiga.speech_metric.exception.UploadFileException;
 import cz.oluwagbemiga.speech_metric.exception.UserNotExistException;
+import cz.oluwagbemiga.speech_metric.mapper.AudioFileMapper;
 import cz.oluwagbemiga.speech_metric.mapper.UserMapper;
 import cz.oluwagbemiga.speech_metric.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +26,8 @@ public class UserService {
     private final UserRepository userRepository;
 
     private final UserMapper userMapper;
+
+    private final AudioFileMapper audioFileMapper;
 
     public UserDTO saveUser(String username) {
         var userEntity = new User();
@@ -55,7 +59,7 @@ public class UserService {
     }
 
     @Transactional
-    public UserDTO addFileToUser(UUID userId, MultipartFile file) {
+    public UploadResponse addFileToUser(UUID userId, MultipartFile file) {
         var user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotExistException("ID: " + userId));
         var audioFile = new AudioFile();
@@ -71,6 +75,7 @@ public class UserService {
 
         user = userRepository.save(user);
 
-        return userMapper.toDto(user);
+        List<AudioFile> audioFiles = user.getAudioFiles();
+        return new UploadResponse(audioFiles.get(audioFiles.size() - 1));
     }
 }

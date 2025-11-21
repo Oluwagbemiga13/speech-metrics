@@ -24,3 +24,9 @@ speech:
   vosk:
     large-model-path: ${user.dir}/src/main/resources/model/vosk-model-en-us-0.22-lgraph
     small-model-path: ${user.dir}/src/main/resources/model/vosk-model-small-en-us-0.15
+
+logging:
+  level:
+    cz.oluwagbemiga.*: DEBUG
+    org.springframework.http.converter.json: DEBUG
+    org.springframework.web: DEBUG
