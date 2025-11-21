@@ -44,9 +44,11 @@ public class AudioFileService {
      */
     @Transactional
     public void deleteAudioFileById(UUID audioFileId) {
+        log.debug("Attempting delete audioFileId={}", audioFileId);
         if (audioFileRepository.deleteByUUID(audioFileId) == 0) {
             throw new FileNotExist(audioFileId.toString());
         }
+        log.info("Deleted audioFileId={}", audioFileId);
     }
 
     /**
@@ -58,6 +60,7 @@ public class AudioFileService {
      */
     @Transactional
     public AudioFile getById(UUID id) {
+        log.trace("Fetch AudioFile entity id={}", id);
         return audioFileRepository.findById(id)
                 .orElseThrow(() -> new FileNotExist(id.toString()));
     }
@@ -71,6 +74,7 @@ public class AudioFileService {
      */
     @Transactional(readOnly = true)
     public AudioFileDTO getDtoById(UUID id) {
+        log.trace("Fetch AudioFile DTO id={}", id);
         var entity = audioFileRepository.findById(id)
                 .orElseThrow(() -> new FileNotExist(id.toString()));
         return audioFileMapper.toDto(entity);
@@ -84,6 +88,7 @@ public class AudioFileService {
      */
     @Transactional
     public List<UUID> getIdsByUserId(UUID userId) {
+        log.debug("Listing audio file IDs for userId={}", userId);
         return audioFileRepository.findAllByOwner_Id(userId)
                 .stream()
                 .map(AudioFile::getId)
@@ -98,10 +103,12 @@ public class AudioFileService {
      * @throws cz.oluwagbemiga.speech_metric.exception.FileNotExist if target file not found
      */
     public void rename(UUID id, String newFileName) {
+        log.debug("Rename audioFile id={} newName={}", id, newFileName);
         var file = audioFileRepository.findById(id)
                 .orElseThrow(() -> new FileNotExist(id.toString()));
         file.setFileName(newFileName);
         audioFileRepository.save(file);
+        log.info("Renamed audioFile id={} newName={}", id, newFileName);
     }
 
     /**
@@ -113,6 +120,7 @@ public class AudioFileService {
      */
     @Transactional(readOnly = true)
     public byte[] getContentById(UUID id) {
+        log.trace("Fetching content for audioFile id={}", id);
         var file = audioFileRepository.findById(id)
                 .orElseThrow(() -> new FileNotExist(id.toString()));
         return file.getData() == null ? null : file.getData().clone();
@@ -126,6 +134,7 @@ public class AudioFileService {
      * @throws cz.oluwagbemiga.speech_metric.exception.FileNotExist if not found
      */
     public String getFileName(UUID id) {
+        log.trace("Fetching fileName for audioFile id={}", id);
         return audioFileRepository.findById(id)
                 .map(AudioFile::getFileName)
                 .orElseThrow(() -> new FileNotExist(id.toString()));
@@ -139,6 +148,7 @@ public class AudioFileService {
      */
     @Transactional(readOnly = true)
     public List<AudioFileDTO> getDtosByUserId(UUID userId) {
+        log.debug("Listing audio files (DTO) for userId={}", userId);
         var files = audioFileRepository.findAllByOwner_Id(userId);
         return audioFileMapper.toDto(files);
     }
@@ -152,6 +162,7 @@ public class AudioFileService {
      */
     @Transactional
     public AudioFile save(AudioFile audioFile) {
+        log.debug("Persist audioFile id={} fileName={} hasData={} dataBytes={} ", audioFile.getId(), audioFile.getFileName(), audioFile.getData() != null, audioFile.getData() == null ? 0 : audioFile.getData().length);
         // Normalize and store only converted audio (16kHz mono PCM s16le WAV)
         byte[] data = audioFile.getData();
         if (data != null && data.length > 0) {
@@ -164,6 +175,8 @@ public class AudioFileService {
                 throw new UploadFileException("Audio normalization failed: ".concat(e.getMessage()));
             }
         }
-        return audioFileRepository.saveAndFlush(audioFile);
+        AudioFile savedFile = audioFileRepository.saveAndFlush(audioFile);
+        log.info("Saved audioFile id={} fileName={} bytes={}", savedFile.getId(), savedFile.getFileName(), savedFile.getData() == null ? 0 : audioFile.getData().length);
+        return savedFile;
     }
 }

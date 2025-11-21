@@ -3,6 +3,8 @@ package cz.oluwagbemiga.speech_metric.entity;
 import jakarta.persistence.*;
 import lombok.Data;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -22,9 +24,15 @@ public class RecognitionSuite {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User owner;
+
+    private final LocalDateTime createdAt = LocalDateTime.now();
+
     /**
      * Collection of recognition results associated with this suite.
      */
     @OneToMany(mappedBy = "recognitionSuite", cascade = CascadeType.ALL)
-    private List<RecognitionResult> recognitionResults;
+    private List<RecognitionResult> recognitionResults = new ArrayList<>();
 }

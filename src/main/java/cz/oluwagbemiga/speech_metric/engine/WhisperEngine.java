@@ -45,7 +45,9 @@ public class WhisperEngine extends SpeechEngine {
         this.whisper = CTX_CACHE.computeIfAbsent(pathToModel, p -> {
             WhisperCpp w = new WhisperCpp();
             try {
+                log.info("Loading Whisper model context path={}", p);
                 w.initContext(p);
+                log.info("Whisper model loaded path={}", p);
                 return w;
             } catch (IOException e) {
                 // Ensure native context is cleaned up on failure
@@ -57,6 +59,9 @@ public class WhisperEngine extends SpeechEngine {
                 throw new IllegalStateException("Failed to load Whisper model at path: " + p, e);
             }
         });
+        if (CTX_CACHE.containsKey(pathToModel)) {
+            log.debug("Using cached Whisper context for model={}", name);
+        }
     }
 
 
@@ -68,17 +73,22 @@ public class WhisperEngine extends SpeechEngine {
      */
     @Override
     public RecognitionResult processAudio(RecognitionRequest request) {
+        long startNanos = System.nanoTime();
         AudioFile audioFile = request.audioFile();
+        log.debug("WhisperEngine processAudio start audioFile={} dataBytes={}", audioFile.getId(), audioFile.getData() == null ? 0 : audioFile.getData().length);
         String expected = request.expectedText();
         String recognizedText;
         try {
             float[] samples = toPcmMono16kFloat(audioFile.getData());
+            log.trace("Converted WAV to float samples count={}", samples.length);
             recognizedText = transcribe(samples);
         } catch (Exception e) {
             log.error("Whisper recognition failed for model '{}' and audioFile '{}'", name, audioFile.getId(), e);
             recognizedText = ""; // fallback to empty string on failure
         }
         double accuracy = computeAccuracy(expected, recognizedText);
+        long elapsedMs = (System.nanoTime() - startNanos) / 1_000_000L;
+        log.info("WhisperEngine finished audioFile={} model={} chars={} accuracy={} timeMs={}", audioFile.getId(), name, recognizedText.length(), accuracy, elapsedMs);
 
         RecognitionResult result = new RecognitionResult();
         result.setModelName(name);
@@ -102,10 +112,13 @@ public class WhisperEngine extends SpeechEngine {
         if (samples == null || samples.length == 0) {
             throw new IOException("Empty audio samples");
         }
+        log.debug("Starting Whisper transcription samples={} model={}", samples.length, name);
         WhisperFullParams params = whisper.getFullDefaultParams(WhisperSamplingStrategy.WHISPER_SAMPLING_BEAM_SEARCH);
         params.temperature = 0.0f;
         params.temperature_inc = 0.2f;
-        return whisper.fullTranscribe(params, samples);
+        String text = whisper.fullTranscribe(params, samples);
+        log.debug("Completed Whisper transcription model={} textLength={}", name, text == null ? 0 : text.length());
+        return text;
     }
 
     /**

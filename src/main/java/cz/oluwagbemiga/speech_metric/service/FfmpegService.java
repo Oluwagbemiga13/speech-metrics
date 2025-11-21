@@ -31,9 +31,13 @@ public class FfmpegService {
      */
     public byte[] toWavPcmMono16k(byte[] input) throws IOException {
         if (input == null || input.length == 0) return input;
+        log.debug("Audio normalization requested bytes={}", input.length);
         try {
             if (isWavPcmMono16k(input)) {
+                log.trace("Input already normalized; skipping ffmpeg transcode");
                 return input; // already normalized
+            } else {
+                log.debug("Input not normalized; invoking ffmpeg");
             }
         } catch (Exception e) {
             // If header parsing fails, fall back to ffmpeg conversion
@@ -65,6 +69,7 @@ public class FfmpegService {
      * @throws IOException on process start / execution failure
      */
     private byte[] ffmpegTranscodeToWavPcmMono16k(byte[] input) throws IOException {
+        log.info("Starting ffmpeg normalization bytes={}", input.length);
         ProcessBuilder pb = new ProcessBuilder(
                 FFMPEG_CMD,
                 "-hide_banner",
@@ -97,6 +102,7 @@ public class FfmpegService {
             Thread.currentThread().interrupt();
             throw new IOException("Interrupted during ffmpeg normalization", ie);
         }
+        log.info("Completed ffmpeg normalization outputBytes={}", out.length);
         return out;
     }
 
@@ -127,7 +133,9 @@ public class FfmpegService {
         if (bitsPerSample != 16) return false;
         // Optionally verify data subchunk exists
         int dataIdx = findDataChunk(data, 12 + 8 + subchunk1Size);
-        return dataIdx > 0;
+        boolean match = dataIdx > 0;
+        log.trace("Header check PCMmono16k result={}", match);
+        return match;
     }
 
     /**

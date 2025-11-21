@@ -44,4 +44,7 @@ public class User {
     @OneToMany(mappedBy = "owner", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<RecognitionResult> recognitionResults = new ArrayList<>();
 
+    @OneToMany(mappedBy = "owner", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<RecognitionSuite> recognitionSuites = new ArrayList<>();
+
 }

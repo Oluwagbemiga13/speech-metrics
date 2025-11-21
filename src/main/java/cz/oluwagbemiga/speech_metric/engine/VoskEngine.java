@@ -40,11 +40,17 @@ public class VoskEngine extends SpeechEngine {
         super(pathToModel);
         this.model = MODEL_CACHE.computeIfAbsent(pathToModel, p -> {
             try {
-                return new Model(p);
+                log.info("Loading Vosk model path={}", p);
+                Model m = new Model(p);
+                log.info("Vosk model loaded path={}", p);
+                return m;
             } catch (IOException e) {
                 throw new IllegalStateException("Failed to load Vosk model at path: " + p, e);
             }
         });
+        if (MODEL_CACHE.containsKey(pathToModel)) {
+            log.debug("Using cached Vosk model path={} name={}", pathToModel, name);
+        }
     }
 
 
@@ -57,7 +63,9 @@ public class VoskEngine extends SpeechEngine {
      */
     @Override
     public RecognitionResult processAudio(RecognitionRequest request) {
+        long startNanos = System.nanoTime();
         AudioFile audioFile = request.audioFile();
+        log.debug("VoskEngine processAudio start audioFile={} dataBytes={}", audioFile.getId(), audioFile.getData() == null ? 0 : audioFile.getData().length);
         String expected = request.expectedText();
         String recognizedText;
         try {
@@ -67,6 +75,8 @@ public class VoskEngine extends SpeechEngine {
             recognizedText = ""; // fallback to empty string on failure
         }
         double accuracy = computeAccuracy(expected, recognizedText);
+        long elapsedMs = (System.nanoTime() - startNanos) / 1_000_000L;
+        log.info("VoskEngine finished audioFile={} model={} chars={} accuracy={} timeMs={}", audioFile.getId(), name, recognizedText.length(), accuracy, elapsedMs);
 
         RecognitionResult result = new RecognitionResult();
         result.setModelName(name);
@@ -93,22 +103,29 @@ public class VoskEngine extends SpeechEngine {
             throw new IOException("Empty audio data");
         }
         byte[] pcm = extractPcmS16leMono16k(data);
+        int total = pcm.length;
+        log.debug("Starting Vosk streaming recognition pcmBytes={} model={} audioFile?", total, name);
         try (Recognizer recognizer = new Recognizer(model, TARGET_SAMPLE_RATE)) {
             int offset = 0;
             int chunk = 4096;
             byte[] buf = new byte[chunk];
+            int chunkCount = 0;
             while (offset < pcm.length) {
                 int len = Math.min(chunk, pcm.length - offset);
                 System.arraycopy(pcm, offset, buf, 0, len);
                 recognizer.acceptWaveForm(buf, len);
                 offset += len;
+                chunkCount++;
             }
+            log.trace("Vosk streaming complete chunks={} lastChunkSize={} totalBytes={} model={}", chunkCount, Math.min(chunk, pcm.length % chunk), total, name);
             String json = recognizer.getFinalResult();
             try {
                 JsonNode node = OBJECT_MAPPER.readTree(json);
                 String text = node.path("text").asText("");
                 if (text.isEmpty()) {
                     log.info("Recognizer returned empty text for model '{}'", name);
+                } else {
+                    log.debug("Vosk recognized textLength={} model={}", text.length(), name);
                 }
                 return text;
             } catch (Exception e) {

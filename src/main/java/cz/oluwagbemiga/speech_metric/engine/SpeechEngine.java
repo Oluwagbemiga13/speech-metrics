@@ -40,6 +40,7 @@ public abstract class SpeechEngine {
         name = pathToModel
                 .substring(pathToModel.lastIndexOf("/") + 1)
                 .replace(".bin", "");
+        log.info("Initialized SpeechEngine name={} modelPath={}", name, this.pathToModel);
     }
 
     /**
@@ -62,12 +63,19 @@ public abstract class SpeechEngine {
      * @throws IOException if header is invalid, format unexpected or data missing
      */
     protected byte[] extractPcmS16leMono16k(byte[] wav) throws IOException {
-        if (wav == null || wav.length < 44) throw new IOException("Invalid or empty WAV data");
+        if (wav == null || wav.length < 44) {
+            log.warn("WAV too small or null length={}", wav == null ? 0 : wav.length);
+            throw new IOException("Invalid or empty WAV data");
+        }
         if (!equalsAscii(wav, 0, "RIFF") || !equalsAscii(wav, 8, "WAVE")) {
+            log.warn("Invalid WAV header (missing RIFF/WAVE)");
             throw new IOException("Not a RIFF/WAVE file");
         }
         // Expect 'fmt ' chunk at 12 for typical PCM WAV written by ffmpeg; if not present, fail fast
-        if (!equalsAscii(wav, 12, "fmt ")) throw new IOException("Missing fmt chunk");
+        if (!equalsAscii(wav, 12, "fmt ")) {
+            log.warn("Missing fmt chunk in WAV");
+            throw new IOException("Missing fmt chunk");
+        }
         ByteBuffer bb = ByteBuffer.wrap(wav).order(ByteOrder.LITTLE_ENDIAN);
         int subchunk1Size = bb.getInt(16);
         int audioFormat = bb.getShort(20) & 0xFFFF; // 1 = PCM
@@ -75,21 +83,30 @@ public abstract class SpeechEngine {
         int sampleRate = bb.getInt(24);
         int bitsPerSample = bb.getShort(34) & 0xFFFF;
         if (audioFormat != 1 || numChannels != 1 || sampleRate != (int) TARGET_SAMPLE_RATE || bitsPerSample != 16) {
+            log.warn("Unexpected WAV format audioFormat={} channels={} sampleRate={} bitsPerSample={}", audioFormat, numChannels, sampleRate, bitsPerSample);
             throw new IOException("Unexpected WAV format; expected PCM s16le mono 16k");
         }
         int dataOffset = findDataChunk(wav, 12 + 8 + subchunk1Size);
         int headerSize = dataOffset + 8; // 'data' + size field
-        if (dataOffset < 0 || headerSize > wav.length) throw new IOException("WAV data chunk not found");
+        if (dataOffset < 0 || headerSize > wav.length) {
+            log.warn("Data chunk not found dataOffset={} headerSize={} wavLength={}", dataOffset, headerSize, wav.length);
+            throw new IOException("WAV data chunk not found");
+        }
         int reported = bb.getInt(dataOffset + 4);
         int remaining = wav.length - headerSize;
         // Clamp size when written to non-seekable stream (ffmpeg may set -1 or an invalid large value)
         int dataSize = reported;
         if (dataSize < 0 || dataSize > remaining) {
+            log.debug("Adjusting dataSize reported={} remaining={} -> clamped={} ", reported, remaining, remaining);
             dataSize = remaining;
         }
-        if (dataSize <= 0) throw new IOException("WAV data size invalid");
+        if (dataSize <= 0) {
+            log.warn("Invalid computed dataSize={} (reported={})", dataSize, reported);
+            throw new IOException("WAV data size invalid");
+        }
         byte[] pcm = new byte[dataSize];
         System.arraycopy(wav, headerSize, pcm, 0, dataSize);
+        log.debug("Extracted PCM samples bytes={} samples={}", dataSize, dataSize / 2);
         return pcm;
     }
 
@@ -145,12 +162,20 @@ public abstract class SpeechEngine {
      * @return CER-based accuracy value
      */
     protected double computeAccuracy(String expected, String recognized) {
-        if (expected == null) return 0.0d;
+        if (expected == null) {
+            log.debug("Accuracy short-circuit: expected is null");
+            return 0.0d;
+        }
         String exp = normalizeForCer(expected);
-        if (exp.isBlank()) return 0.0d;
+        if (exp.isBlank()) {
+            log.debug("Accuracy short-circuit: expected blank after normalization original='{}'", expected);
+            return 0.0d;
+        }
         String rec = normalizeForCer(recognized == null ? "" : recognized);
         int distance = levenshteinChars(exp, rec);
-        return Math.max(0d, 1d - (double) distance / exp.length());
+        double acc = Math.max(0d, 1d - (double) distance / exp.length());
+        log.debug("Computed accuracy distance={} expectedLen={} recognizedLen={} accuracy={}", distance, exp.length(), rec.length(), acc);
+        return acc;
     }
 
     /**
@@ -194,7 +219,9 @@ public abstract class SpeechEngine {
                 );
             }
         }
-        return dp[n][m];
+        int result = dp[n][m];
+        log.trace("Levenshtein computed n={} m={} distance={}", n, m, result);
+        return result;
     }
 
 }

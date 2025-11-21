@@ -6,6 +6,7 @@ import cz.oluwagbemiga.speech_metric.entity.RecognitionResult;
 import cz.oluwagbemiga.speech_metric.entity.RecognitionSuite;
 import cz.oluwagbemiga.speech_metric.repository.RecognitionSuiteRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -18,6 +19,7 @@ import java.util.UUID;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class RecognitionSuiteService {
 
     private final RecognitionSuiteRepository recognitionSuiteRepository;
@@ -30,6 +32,7 @@ public class RecognitionSuiteService {
      * @throws RuntimeException if not found (consider custom exception later)
      */
     public RecognitionSuite getById(UUID id) {
+        log.trace("Fetch RecognitionSuite id={}", id);
         return recognitionSuiteRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("RecognitionSuite not found with id: " + id));
     }
@@ -41,6 +44,7 @@ public class RecognitionSuiteService {
      * @return DTO representation of persisted suite
      */
     public RecognitionSuiteDTO save(List<RecognitionResult> results) {
+        log.debug("Create new RecognitionSuite resultsCount={}", results == null ? 0 : results.size());
         RecognitionSuite suite = new RecognitionSuite();
         suite.setRecognitionResults(results);
         return new RecognitionSuiteDTO(recognitionSuiteRepository.save(suite));
@@ -54,10 +58,12 @@ public class RecognitionSuiteService {
      * @return updated suite DTO
      */
     public RecognitionSuiteDTO addResults(UUID suiteId, List<RecognitionResult> results) {
+        log.debug("Add results to suite suiteId={} addCount={}", suiteId, results == null ? 0 : results.size());
         RecognitionSuite suite = getById(suiteId);
         List<RecognitionResult> existingResults = suite.getRecognitionResults();
         existingResults.addAll(results);
         suite.setRecognitionResults(existingResults);
+        log.info("Suite updated suiteId={} totalResults={}", suiteId, existingResults.size());
         return new RecognitionSuiteDTO(recognitionSuiteRepository.save(suite));
     }
 

@@ -2,6 +2,7 @@ package cz.oluwagbemiga.speech_metric.dto;
 
 import cz.oluwagbemiga.speech_metric.entity.RecognitionSuite;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -17,7 +18,9 @@ import java.util.UUID;
  */
 public record RecognitionSuiteDTO(
         UUID id,
-        List<RecognitionResponse> recognitionResponses
+        List<RecognitionResponse> recognitionResponses,
+        UUID ownerId,
+        LocalDateTime createdAt
 ) {
 
     /**
@@ -37,7 +40,9 @@ public record RecognitionSuiteDTO(
                                 result.getExpectedText(),
                                 result.getAccuracy()
                         ))
-                        .toList()
+                        .toList(),
+                suite.getOwner().getId(),
+                suite.getCreatedAt()
         );
     }
 }

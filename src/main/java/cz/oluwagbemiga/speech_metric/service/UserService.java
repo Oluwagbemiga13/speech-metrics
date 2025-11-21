@@ -45,9 +45,11 @@ public class UserService {
      * @return persisted user DTO
      */
     public UserDTO saveUser(String username) {
+        log.debug("Creating user username={}", username);
         var userEntity = new User();
         userEntity.setUsername(username);
         var savedUser = userRepository.save(userEntity);
+        log.info("Created user id={} username={}", savedUser.getId(), savedUser.getUsername());
         return userMapper.toDto(savedUser);
     }
 
@@ -59,10 +61,12 @@ public class UserService {
      */
     @Transactional
     public void deleteUserByUsername(String username) {
+        log.debug("Deleting user username={}", username);
         var success = userRepository.deleteByUsername(username);
         if (success == 0) {
             throw new UserNotExistException(username);
         }
+        log.info("Deleted user username={}", username);
     }
 
     /**
@@ -74,6 +78,7 @@ public class UserService {
      */
     @Transactional
     public UserDTO getUserByUsername(String username) {
+        log.trace("Fetching user by username={}", username);
         var user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new UserNotExistException(username));
         return userMapper.toDto(user);
@@ -86,6 +91,7 @@ public class UserService {
      */
     @Transactional
     public List<UserDTO> getAllUsers() {
+        log.debug("Fetching all users");
         var users = userRepository.findAll();
         return userMapper.toDto(users);
     }
@@ -101,6 +107,7 @@ public class UserService {
      */
     @Transactional
     public UploadResponse addFileToUser(UUID userId, MultipartFile file) {
+        log.debug("Uploading file for userId={} originalFilename={}", userId, file.getOriginalFilename());
         var user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotExistException("ID: " + userId));
         var audioFile = new AudioFile();
@@ -122,6 +129,7 @@ public class UserService {
         user = userRepository.save(user);
 
         List<AudioFile> audioFiles = user.getAudioFiles();
+        log.info("Uploaded file for userId={} storedFileName={} bytes={}", userId, audioFile.getFileName(), audioFile.getData() == null ? 0 : audioFile.getData().length);
         return new UploadResponse(audioFiles.get(audioFiles.size() - 1));
     }
 }

@@ -1,6 +1,7 @@
 package cz.oluwagbemiga.speech_metric.controller;
 
 import cz.oluwagbemiga.speech_metric.dto.RecognitionResponse;
+import cz.oluwagbemiga.speech_metric.dto.RecognitionSuiteDTO;
 import cz.oluwagbemiga.speech_metric.engine.RecognitionRequest;
 import cz.oluwagbemiga.speech_metric.engine.SpeechEngine;
 import cz.oluwagbemiga.speech_metric.entity.AudioFile;
@@ -10,12 +11,12 @@ import cz.oluwagbemiga.speech_metric.service.EngineService;
 import cz.oluwagbemiga.speech_metric.service.RecognitionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -29,9 +30,6 @@ public class RecognitionController {
 
     public RecognitionController(
             AudioFileService audioFileService,
-            @Qualifier("voskLargeEngine") SpeechEngine voskLargeEngine,
-            @Qualifier("voskSmallEngine") SpeechEngine voskSmallEngine,
-            @Qualifier("whisperBaseEngine") SpeechEngine whisperBaseEngine,
             RecognitionService recognitionService,
             EngineService engineService) {
         this.audioFileService = audioFileService;
@@ -82,6 +80,15 @@ public class RecognitionController {
         List<RecognitionResponse> responses = recognitionService.recognizeAllEngines(audioFileId, expected);
 
         return ResponseEntity.ok(responses);
+    }
+
+    @PostMapping("/suite")
+    @Operation(summary = "Run recognition suite",
+            description = "Provide a JSON object mapping audio file UUIDs to expected transcripts. Runs all engines per audio file and returns aggregated results.")
+    @Transactional
+    public ResponseEntity<RecognitionSuiteDTO> runSuite(@RequestBody Map<UUID, String> expectedMap, @RequestParam UUID ownerId) {
+        RecognitionSuiteDTO response = recognitionService.runSuite(expectedMap, ownerId);
+        return ResponseEntity.ok(response);
     }
 
 }
