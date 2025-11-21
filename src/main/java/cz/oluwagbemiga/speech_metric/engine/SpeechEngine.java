@@ -9,7 +9,17 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 
-
+/**
+ * Base abstraction for speech recognition engines used in the application.
+ * <p>
+ * Implementations (e.g. {@link WhisperEngine}, {@link VoskEngine}) provide concrete
+ * logic to transcribe audio and produce a {@link RecognitionResult}. This class
+ * offers common utilities for WAV/PCM extraction, accuracy computation via
+ * character error rate (CER) and helper normalization routines.
+ * <p>
+ * The expected input audio format for helper methods is a normalized WAV
+ * container with PCM signed 16-bit little-endian, mono, 16 kHz samples.
+ */
 @Slf4j
 public abstract class SpeechEngine {
 
@@ -18,6 +28,12 @@ public abstract class SpeechEngine {
     protected final String pathToModel;
     protected String name;
 
+    /**
+     * Constructs a speech engine with a path to the underlying model resources.
+     * Derives a human friendly model name from the path.
+     *
+     * @param pathToModel absolute or canonical path to model file/directory
+     */
     protected SpeechEngine(String pathToModel) {
         this.pathToModel = pathToModel;
         pathToModel = pathToModel.replace("\\", "/");
@@ -26,10 +42,25 @@ public abstract class SpeechEngine {
                 .replace(".bin", "");
     }
 
+    /**
+     * Performs recognition on the provided request and returns a populated result.
+     * Implementations must handle transcription errors internally and still
+     * return a non-null {@link RecognitionResult} instance.
+     *
+     * @param recognitionRequest request containing audio and expected transcript
+     * @return recognition result populated with recognized text and accuracy metrics
+     */
     public abstract RecognitionResult processAudio(RecognitionRequest recognitionRequest);
 
-    // Extract raw PCM s16le mono 16kHz bytes from a normalized WAV container.
-    // Assumes files were normalized at upload time.
+    /**
+     * Extract raw PCM s16le mono 16 kHz byte samples from a standard WAV container.
+     * Validates the header and locates the data chunk, handling potentially
+     * malformed size fields produced by non-seekable writers.
+     *
+     * @param wav full WAV file bytes
+     * @return raw PCM bytes (little-endian, 16-bit samples)
+     * @throws IOException if header is invalid, format unexpected or data missing
+     */
     protected byte[] extractPcmS16leMono16k(byte[] wav) throws IOException {
         if (wav == null || wav.length < 44) throw new IOException("Invalid or empty WAV data");
         if (!equalsAscii(wav, 0, "RIFF") || !equalsAscii(wav, 8, "WAVE")) {
@@ -62,6 +93,14 @@ public abstract class SpeechEngine {
         return pcm;
     }
 
+    /**
+     * Compare a sequence of bytes against an ASCII reference string.
+     *
+     * @param data   source byte array
+     * @param offset start index within data
+     * @param ascii  ASCII string to compare
+     * @return true if bytes match exactly
+     */
     private boolean equalsAscii(byte[] data, int offset, String ascii) {
         byte[] ref = ascii.getBytes(StandardCharsets.US_ASCII);
         if (offset + ref.length > data.length) return false;
@@ -69,6 +108,15 @@ public abstract class SpeechEngine {
         return true;
     }
 
+    /**
+     * Locate the 'data' chunk within a WAV byte array, starting search at a specified index.
+     * Performs conservative validation of chunk sizes and will fall back to
+     * byte-wise scanning if an invalid size is encountered.
+     *
+     * @param data  WAV bytes
+     * @param start initial offset to begin searching
+     * @return offset of the 'data' chunk header or -1 if not found
+     */
     private int findDataChunk(byte[] data, int start) {
         int i = start;
         if (i < 12) i = 12;
@@ -88,7 +136,14 @@ public abstract class SpeechEngine {
         return -1;
     }
 
-    // Character Error Rate (CER) based accuracy: 1 - (editDistance / expectedCharCount). Returns 0 when expected is empty.
+    /**
+     * Compute accuracy using Character Error Rate: 1 - (editDistance / expected length).
+     * Returns 0 when expected is null/blank. Result is clamped to [0,1].
+     *
+     * @param expected   ground-truth transcript
+     * @param recognized recognized transcript
+     * @return CER-based accuracy value
+     */
     protected double computeAccuracy(String expected, String recognized) {
         if (expected == null) return 0.0d;
         String exp = normalizeForCer(expected);
@@ -98,6 +153,13 @@ public abstract class SpeechEngine {
         return Math.max(0d, 1d - (double) distance / exp.length());
     }
 
+    /**
+     * Normalize a string for CER computation: lowercase, remove punctuation symbols
+     * (question mark, period, comma, exclamation) and collapse whitespace.
+     *
+     * @param s input string
+     * @return normalized string
+     */
     protected String normalizeForCer(String s) {
         if (s == null) return "";
         return s.toLowerCase()
@@ -106,6 +168,13 @@ public abstract class SpeechEngine {
                 .replaceAll("\\s+", " ");
     }
 
+    /**
+     * Compute the Levenshtein edit distance between two character sequences.
+     *
+     * @param a first string
+     * @param b second string
+     * @return edit distance
+     */
     protected int levenshteinChars(String a, String b) {
         int n = a.length();
         int m = b.length();

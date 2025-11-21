@@ -16,6 +16,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * Service coordinating speech recognition workflows.
+ * <p>
+ * Provides operations for executing recognition with a single selected engine or across all
+ * registered engines, persisting resulting {@link cz.oluwagbemiga.speech_metric.entity.RecognitionResult}
+ * instances (cascade via {@link cz.oluwagbemiga.speech_metric.entity.AudioFile}).
+ * </p>
+ */
 @Service
 @RequiredArgsConstructor
 public class RecognitionService {
@@ -25,6 +33,14 @@ public class RecognitionService {
     private final RecognitionSuiteRepository recognitionSuiteRepository;
 
 
+    /**
+     * Runs recognition for a single model selected by name.
+     *
+     * @param audioFileId source audio UUID
+     * @param expected    expected transcript provided by user (used for accuracy metrics)
+     * @param modelSelect engine key (see {@link EngineService#getEngineByName(String)})
+     * @return response DTO based on newly persisted result
+     */
     public RecognitionResponse recognizeAllEngines(
             UUID audioFileId,
             String expected,
@@ -43,6 +59,13 @@ public class RecognitionService {
         return mapToResponse(persisted);
     }
 
+    /**
+     * Executes recognition over all configured engines.
+     *
+     * @param audioFileId source audio UUID
+     * @param expected    expected transcript for metric calculation
+     * @return list of responses mapped from persisted results (one per engine)
+     */
     public List<RecognitionResponse> recognizeAllEngines(
             UUID audioFileId,
             String expected) {
@@ -71,7 +94,12 @@ public class RecognitionService {
                 .toList();
     }
 
-    //TODO implement
+    /**
+     * Placeholder for suite execution (batch processing across multiple audio files).
+     *
+     * @param expectedMap mapping of audio file id to expected transcript
+     * @return list of recognition responses (currently null until implemented)
+     */
     public List<RecognitionResponse> runSuite(Map<UUID, String> expectedMap) {
 
         return null;

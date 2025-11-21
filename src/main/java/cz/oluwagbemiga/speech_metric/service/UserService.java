@@ -19,6 +19,12 @@ import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Service managing {@link cz.oluwagbemiga.speech_metric.entity.User} lifecycle and user-owned audio uploads.
+ * <p>
+ * Provides CRUD operations for users and supports uploading audio which is normalized before persistence.
+ * </p>
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -32,6 +38,12 @@ public class UserService {
 
     private final FfmpegService ffmpegService;
 
+    /**
+     * Creates and persists a new user with given username.
+     *
+     * @param username unique username
+     * @return persisted user DTO
+     */
     public UserDTO saveUser(String username) {
         var userEntity = new User();
         userEntity.setUsername(username);
@@ -39,6 +51,12 @@ public class UserService {
         return userMapper.toDto(savedUser);
     }
 
+    /**
+     * Deletes user by username.
+     *
+     * @param username username to delete
+     * @throws cz.oluwagbemiga.speech_metric.exception.UserNotExistException if user absent
+     */
     @Transactional
     public void deleteUserByUsername(String username) {
         var success = userRepository.deleteByUsername(username);
@@ -47,6 +65,13 @@ public class UserService {
         }
     }
 
+    /**
+     * Fetch user by username.
+     *
+     * @param username username
+     * @return user DTO
+     * @throws cz.oluwagbemiga.speech_metric.exception.UserNotExistException if user not found
+     */
     @Transactional
     public UserDTO getUserByUsername(String username) {
         var user = userRepository.findByUsername(username)
@@ -54,13 +79,26 @@ public class UserService {
         return userMapper.toDto(user);
     }
 
-
+    /**
+     * Returns all users mapped to DTOs.
+     *
+     * @return list of user DTOs
+     */
     @Transactional
     public List<UserDTO> getAllUsers() {
         var users = userRepository.findAll();
         return userMapper.toDto(users);
     }
 
+    /**
+     * Adds an uploaded audio file to a user. Audio is normalized (WAV PCM s16le mono 16kHz) before persistence.
+     *
+     * @param userId id of owner user
+     * @param file   multipart upload
+     * @return upload response containing stored audio metadata
+     * @throws cz.oluwagbemiga.speech_metric.exception.UserNotExistException if user not found
+     * @throws cz.oluwagbemiga.speech_metric.exception.UploadFileException   on IO/processing errors
+     */
     @Transactional
     public UploadResponse addFileToUser(UUID userId, MultipartFile file) {
         var user = userRepository.findById(userId)

@@ -11,10 +11,18 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-
 /**
- * Vosk speech recognition engine implementation.
- * Uses Vosk API to process audio data and return recognized text.
+ * SpeechEngine implementation using the Vosk offline speech recognition library.
+ * <p>
+ * A {@link Model} instance is cached per model path to prevent redundant loading
+ * of large acoustic/language models. The engine exposes a uniform API identical
+ * to {@link WhisperEngine} for easy benchmarking.
+ * <p>
+ * Usage example:
+ * <pre>
+ *     SpeechEngine engine = new VoskEngine("/abs/path/to/vosk-model-en-us-0.22");
+ *     RecognitionResult result = engine.processAudio(request);
+ * </pre>
  */
 @Slf4j
 public class VoskEngine extends SpeechEngine {
@@ -22,7 +30,12 @@ public class VoskEngine extends SpeechEngine {
     private final Model model;
     private static final Map<String, Model> MODEL_CACHE = new ConcurrentHashMap<>();
 
-
+    /**
+     * Constructs a VoskEngine, reusing a cached model when available.
+     *
+     * @param pathToModel absolute path to a Vosk model directory
+     * @throws IllegalStateException if the model fails to load
+     */
     public VoskEngine(String pathToModel) {
         super(pathToModel);
         this.model = MODEL_CACHE.computeIfAbsent(pathToModel, p -> {
@@ -35,6 +48,13 @@ public class VoskEngine extends SpeechEngine {
     }
 
 
+    /**
+     * Streams the audio to a Vosk Recognizer instance and produces a final transcription.
+     * Computes character-error-rate accuracy against the expected text.
+     *
+     * @param request recognition request containing audio data and expected transcript
+     * @return {@link RecognitionResult} containing recognized text and accuracy metrics
+     */
     @Override
     public RecognitionResult processAudio(RecognitionRequest request) {
         AudioFile audioFile = request.audioFile();
@@ -60,6 +80,14 @@ public class VoskEngine extends SpeechEngine {
     }
 
 
+    /**
+     * Performs incremental recognition on raw WAV bytes (PCM s16le mono 16 kHz) and returns final text.
+     * Falls back to raw JSON if parsing of the recognizer output fails.
+     *
+     * @param data WAV container bytes
+     * @return recognized plain text (or raw recognizer JSON on parse failure)
+     * @throws IOException if the input audio data is invalid or empty
+     */
     private String recognizeSpeechFromBytes(byte[] data) throws IOException {
         if (data == null || data.length == 0) {
             throw new IOException("Empty audio data");

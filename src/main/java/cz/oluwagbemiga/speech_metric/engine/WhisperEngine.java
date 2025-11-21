@@ -12,9 +12,18 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Whisper.cpp-based engine that mirrors VoskEngine semantics so it can be used interchangeably.
+ * SpeechEngine implementation backed by the native {@code whisper.cpp} library.
  * <p>
- * Usage: new WhisperEngine("whisper-base", "/abs/path/to/ggml-*.bin")
+ * This engine mirrors the semantics of {@link VoskEngine} so that callers can
+ * switch engines transparently when evaluating recognition quality. A single
+ * native Whisper context is cached per model path to avoid re-loading large
+ * model binaries in memory for multiple engine instances.
+ * <p>
+ * Typical usage:
+ * <pre>
+ *     SpeechEngine engine = new WhisperEngine("/abs/path/to/ggml-base.en.bin");
+ *     RecognitionResult result = engine.processAudio(request);
+ * </pre>
  */
 @Slf4j
 public class WhisperEngine extends SpeechEngine {
@@ -24,6 +33,12 @@ public class WhisperEngine extends SpeechEngine {
 
     private final WhisperCpp whisper;
 
+    /**
+     * Creates a new WhisperEngine and initializes (or reuses) a native Whisper context.
+     *
+     * @param pathToModel absolute path to the Whisper ggml model file (e.g. {@code ggml-base.en.bin})
+     * @throws IllegalStateException if the model cannot be loaded
+     */
     public WhisperEngine(String pathToModel) {
         super(pathToModel);
 
@@ -45,6 +60,12 @@ public class WhisperEngine extends SpeechEngine {
     }
 
 
+    /**
+     * Performs full transcription of the audio in the provided request and computes accuracy.
+     *
+     * @param request recognition request containing audio bytes and expected text
+     * @return populated {@link RecognitionResult} including recognized text and CER-based accuracy
+     */
     @Override
     public RecognitionResult processAudio(RecognitionRequest request) {
         AudioFile audioFile = request.audioFile();
@@ -70,6 +91,13 @@ public class WhisperEngine extends SpeechEngine {
         return result;
     }
 
+    /**
+     * Runs a full Whisper transcription using beam search sampling.
+     *
+     * @param samples PCM mono 16 kHz float samples in range [-1, 1]
+     * @return recognized text from the Whisper model
+     * @throws IOException if samples are empty or transcription fails at native level
+     */
     private String transcribe(float[] samples) throws IOException {
         if (samples == null || samples.length == 0) {
             throw new IOException("Empty audio samples");
@@ -80,7 +108,13 @@ public class WhisperEngine extends SpeechEngine {
         return whisper.fullTranscribe(params, samples);
     }
 
-    // Convert normalized WAV (PCM s16le mono 16kHz) bytes to float samples [-1,1]
+    /**
+     * Converts a WAV (PCM s16le mono 16 kHz) byte array to normalized float samples [-1,1].
+     *
+     * @param wav full WAV container bytes
+     * @return float array of audio samples
+     * @throws IOException if the WAV data is invalid or empty
+     */
     private float[] toPcmMono16kFloat(byte[] wav) throws IOException {
         if (wav == null || wav.length == 0) throw new IOException("Empty audio data");
         byte[] pcmBytes = extractPcmS16leMono16k(wav);

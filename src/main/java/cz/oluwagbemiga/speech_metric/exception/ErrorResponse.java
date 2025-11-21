@@ -3,11 +3,13 @@ package cz.oluwagbemiga.speech_metric.exception;
 import java.time.LocalDateTime;
 
 /**
- * Represents an error response for exceptions in the Fairy Tales application.
+ * Standardized error payload returned by the REST layer when exceptions are handled.
+ * Immutable record capturing HTTP status code, human readable message and a timestamp.
+ * Use the two-argument convenience constructor to auto-populate the timestamp with {@code LocalDateTime.now()}.
  *
- * @param status
- * @param message
- * @param timestamp
+ * @param status    HTTP status code
+ * @param message   error description
+ * @param timestamp creation time of this response (usually server time)
  */
 public record ErrorResponse(
         int status,

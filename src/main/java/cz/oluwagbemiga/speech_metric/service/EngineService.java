@@ -8,6 +8,10 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+/**
+ * Service acting as a registry / factory for available {@link cz.oluwagbemiga.speech_metric.engine.SpeechEngine} implementations.
+ * <p>Provides lookup by name and exposes lists of engines / engine names used for batch recognition.</p>
+ */
 @Service
 @RequiredArgsConstructor
 public class EngineService {
@@ -22,6 +26,13 @@ public class EngineService {
     private final SpeechEngine whisperSmallQ51Engine;
     private final SpeechEngine whisperSmallQ8Engine;
 
+    /**
+     * Returns an engine by its externalized name.
+     *
+     * @param engineName configured engine key (e.g. "vosk-large")
+     * @return matching {@link cz.oluwagbemiga.speech_metric.engine.SpeechEngine}
+     * @throws cz.oluwagbemiga.speech_metric.exception.EngineNotFound if no engine mapped to name
+     */
     public SpeechEngine getEngineByName(String engineName) {
         return switch (engineName) {
             case "vosk-large" -> voskLargeEngine;
@@ -35,6 +46,11 @@ public class EngineService {
         };
     }
 
+    /**
+     * All active engines available for recognition.
+     *
+     * @return immutable list of engines
+     */
     public List<SpeechEngine> getAllEngines() {
         return List.of(
                 voskLargeEngine,
@@ -47,6 +63,11 @@ public class EngineService {
         );
     }
 
+    /**
+     * Names of all active engines (keys accepted by {@link #getEngineByName(String)}).
+     *
+     * @return immutable list of engine names
+     */
     public List<String> getAllEngineNames() {
         return List.of(
                 "vosk-large",

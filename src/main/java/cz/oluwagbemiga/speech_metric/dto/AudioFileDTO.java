@@ -5,6 +5,18 @@ import java.util.Arrays;
 import java.util.Objects;
 import java.util.UUID;
 
+/**
+ * Data transfer object representing an uploaded audio file.
+ * <p>
+ * Contains the unique identifier, original file name, raw WAV bytes and creation timestamp.
+ * The raw byte array is included for endpoints that need to stream or process the audio directly.
+ * </p>
+ *
+ * @param id        unique identifier of the audio file
+ * @param fileName  original name supplied at upload time
+ * @param data      raw audio bytes (typically a normalized WAV container)
+ * @param createdAt timestamp when the file was persisted
+ */
 public record AudioFileDTO(
         UUID id,
         String fileName,
