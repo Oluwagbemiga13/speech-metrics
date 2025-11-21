@@ -7,9 +7,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.vosk.Model;
 import org.vosk.Recognizer;
 
-import javax.sound.sampled.AudioFormat;
-import javax.sound.sampled.AudioInputStream;
-import javax.sound.sampled.UnsupportedAudioFileException;
 import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -46,7 +43,7 @@ public class VoskEngine extends SpeechEngine {
         try {
             recognizedText = recognizeSpeechFromBytes(audioFile.getData());
         } catch (Exception e) {
-            log.error("Vosk recognition failed for model '{}' and audioFile '{}': {}", name, audioFile.getId(), e.toString(), e);
+            log.error("Vosk recognition failed for model '{}' and audioFile '{}'", name, audioFile.getId(), e);
             recognizedText = ""; // fallback to empty string on failure
         }
         double accuracy = computeAccuracy(expected, recognizedText);
@@ -63,22 +60,20 @@ public class VoskEngine extends SpeechEngine {
     }
 
 
-    private String recognizeSpeechFromBytes(byte[] data) throws UnsupportedAudioFileException, IOException {
+    private String recognizeSpeechFromBytes(byte[] data) throws IOException {
         if (data == null || data.length == 0) {
             throw new IOException("Empty audio data");
         }
-        try (AudioInputStream pcm = decodeToPcmMono16k(data);
-             Recognizer recognizer = new Recognizer(model, TARGET_SAMPLE_RATE)) {
-
-            AudioFormat pcmFormat = pcm.getFormat();
-            log.debug("PCM format fed to recognizer: {} Hz, {} ch, enc={}, sampleSize={} bits", pcmFormat.getSampleRate(), pcmFormat.getChannels(), pcmFormat.getEncoding(), pcmFormat.getSampleSizeInBits());
-
-            byte[] buffer = new byte[4096];
-            int n;
-            while ((n = pcm.read(buffer)) >= 0) {
-                if (n > 0) {
-                    recognizer.acceptWaveForm(buffer, n);
-                }
+        byte[] pcm = extractPcmS16leMono16k(data);
+        try (Recognizer recognizer = new Recognizer(model, TARGET_SAMPLE_RATE)) {
+            int offset = 0;
+            int chunk = 4096;
+            byte[] buf = new byte[chunk];
+            while (offset < pcm.length) {
+                int len = Math.min(chunk, pcm.length - offset);
+                System.arraycopy(pcm, offset, buf, 0, len);
+                recognizer.acceptWaveForm(buf, len);
+                offset += len;
             }
             String json = recognizer.getFinalResult();
             try {
@@ -89,7 +84,7 @@ public class VoskEngine extends SpeechEngine {
                 }
                 return text;
             } catch (Exception e) {
-                log.warn("Failed to parse recognizer JSON, returning raw: {}", e.toString());
+                log.warn("Failed to parse recognizer JSON, returning raw", e);
                 return json; // fallback raw json
             }
         }

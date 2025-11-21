@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 
@@ -28,6 +29,8 @@ public class UserService {
     private final UserMapper userMapper;
 
     private final AudioFileMapper audioFileMapper;
+
+    private final FfmpegService ffmpegService;
 
     public UserDTO saveUser(String username) {
         var userEntity = new User();
@@ -64,12 +67,17 @@ public class UserService {
                 .orElseThrow(() -> new UserNotExistException("ID: " + userId));
         var audioFile = new AudioFile();
         try (var inputStream = file.getInputStream()) {
-            audioFile.setData(inputStream.readAllBytes());
+            byte[] original = inputStream.readAllBytes();
+            byte[] normalized = ffmpegService.toWavPcmMono16k(original);
+            audioFile.setData(normalized);
+            audioFile.setFileName(ffmpegService.withWavExtension(file.getOriginalFilename()));
+        } catch (IOException e) {
+            log.error("Failed to read/convert uploaded audio", e);
+            throw new UploadFileException("Failed to upload file: " + file.getOriginalFilename());
         } catch (Exception e) {
-            log.error(e.getMessage());
+            log.error("Unexpected error during upload", e);
             throw new UploadFileException("Failed to upload file: " + file.getOriginalFilename());
         }
-        audioFile.setFileName(file.getOriginalFilename());
         audioFile.setOwner(user);
         user.getAudioFiles().add(audioFile);
 

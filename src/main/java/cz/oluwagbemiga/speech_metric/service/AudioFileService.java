@@ -3,22 +3,26 @@ package cz.oluwagbemiga.speech_metric.service;
 import cz.oluwagbemiga.speech_metric.dto.AudioFileDTO;
 import cz.oluwagbemiga.speech_metric.entity.AudioFile;
 import cz.oluwagbemiga.speech_metric.exception.FileNotExist;
+import cz.oluwagbemiga.speech_metric.exception.UploadFileException;
 import cz.oluwagbemiga.speech_metric.mapper.AudioFileMapper;
 import cz.oluwagbemiga.speech_metric.repository.AudioFileRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AudioFileService {
 
     private final AudioFileRepository audioFileRepository;
     private final AudioFileMapper audioFileMapper;
-
+    private final FfmpegService ffmpegService;
 
     @Transactional
     public void deleteAudioFileById(UUID audioFileId) {
@@ -77,6 +81,18 @@ public class AudioFileService {
 
     @Transactional
     public AudioFile save(AudioFile audioFile) {
+        // Normalize and store only converted audio (16kHz mono PCM s16le WAV)
+        byte[] data = audioFile.getData();
+        if (data != null && data.length > 0) {
+            try {
+                byte[] converted = ffmpegService.toWavPcmMono16k(data);
+                audioFile.setData(converted);
+                audioFile.setFileName(ffmpegService.withWavExtension(audioFile.getFileName()));
+            } catch (IOException e) {
+                log.error("Failed to normalize audio before saving", e);
+                throw new UploadFileException("Audio normalization failed: ".concat(e.getMessage()));
+            }
+        }
         return audioFileRepository.saveAndFlush(audioFile);
     }
 }

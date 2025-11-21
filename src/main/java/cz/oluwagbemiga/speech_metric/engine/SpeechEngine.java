@@ -4,21 +4,17 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import cz.oluwagbemiga.speech_metric.entity.RecognitionResult;
 import lombok.extern.slf4j.Slf4j;
 
-import javax.sound.sampled.AudioFormat;
-import javax.sound.sampled.AudioInputStream;
-import javax.sound.sampled.AudioSystem;
-import javax.sound.sampled.UnsupportedAudioFileException;
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.OutputStream;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
 
 
 @Slf4j
 public abstract class SpeechEngine {
 
-    protected final float TARGET_SAMPLE_RATE = 16000.0f;
-    protected final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-    protected final String FFMPEG_CMD = System.getenv("FFMPEG_PATH") != null ? System.getenv("FFMPEG_PATH") : "ffmpeg";
+    protected static final float TARGET_SAMPLE_RATE = 16000.0f;
+    protected static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     protected final String pathToModel;
     protected String name;
 
@@ -32,94 +28,64 @@ public abstract class SpeechEngine {
 
     public abstract RecognitionResult processAudio(RecognitionRequest recognitionRequest);
 
-    protected AudioInputStream convertToPcmMono16k(AudioInputStream source) {
-        AudioFormat targetFormat = new AudioFormat(
-                AudioFormat.Encoding.PCM_SIGNED,
-                TARGET_SAMPLE_RATE,
-                16,
-                1,
-                2,
-                TARGET_SAMPLE_RATE,
-                false
-        );
-        // First convert to PCM_SIGNED if needed
-        AudioInputStream pcmStream = AudioSystem.getAudioInputStream(AudioFormat.Encoding.PCM_SIGNED, source);
-        // Then convert to desired sample rate / channels
-        if (!pcmStream.getFormat().matches(targetFormat)) {
-            pcmStream = AudioSystem.getAudioInputStream(targetFormat, pcmStream);
+    // Extract raw PCM s16le mono 16kHz bytes from a normalized WAV container.
+    // Assumes files were normalized at upload time.
+    protected byte[] extractPcmS16leMono16k(byte[] wav) throws IOException {
+        if (wav == null || wav.length < 44) throw new IOException("Invalid or empty WAV data");
+        if (!equalsAscii(wav, 0, "RIFF") || !equalsAscii(wav, 8, "WAVE")) {
+            throw new IOException("Not a RIFF/WAVE file");
         }
-        return pcmStream;
+        // Expect 'fmt ' chunk at 12 for typical PCM WAV written by ffmpeg; if not present, fail fast
+        if (!equalsAscii(wav, 12, "fmt ")) throw new IOException("Missing fmt chunk");
+        ByteBuffer bb = ByteBuffer.wrap(wav).order(ByteOrder.LITTLE_ENDIAN);
+        int subchunk1Size = bb.getInt(16);
+        int audioFormat = bb.getShort(20) & 0xFFFF; // 1 = PCM
+        int numChannels = bb.getShort(22) & 0xFFFF;
+        int sampleRate = bb.getInt(24);
+        int bitsPerSample = bb.getShort(34) & 0xFFFF;
+        if (audioFormat != 1 || numChannels != 1 || sampleRate != (int) TARGET_SAMPLE_RATE || bitsPerSample != 16) {
+            throw new IOException("Unexpected WAV format; expected PCM s16le mono 16k");
+        }
+        int dataOffset = findDataChunk(wav, 12 + 8 + subchunk1Size);
+        int headerSize = dataOffset + 8; // 'data' + size field
+        if (dataOffset < 0 || headerSize > wav.length) throw new IOException("WAV data chunk not found");
+        int reported = bb.getInt(dataOffset + 4);
+        int remaining = wav.length - headerSize;
+        // Clamp size when written to non-seekable stream (ffmpeg may set -1 or an invalid large value)
+        int dataSize = reported;
+        if (dataSize < 0 || dataSize > remaining) {
+            dataSize = remaining;
+        }
+        if (dataSize <= 0) throw new IOException("WAV data size invalid");
+        byte[] pcm = new byte[dataSize];
+        System.arraycopy(wav, headerSize, pcm, 0, dataSize);
+        return pcm;
     }
 
-    // Use ffmpeg (must be available on PATH or via FFMPEG_PATH env) to decode any input to 16kHz mono s16le
-    protected AudioInputStream decodeWithFfmpeg(byte[] data) throws IOException {
-        ProcessBuilder pb = new ProcessBuilder(
-                FFMPEG_CMD,
-                "-hide_banner",
-                "-loglevel", "error",
-                "-i", "pipe:0",
-                "-f", "s16le",
-                "-acodec", "pcm_s16le",
-                "-ac", "1",
-                "-ar", String.valueOf((int) TARGET_SAMPLE_RATE),
-                "pipe:1"
-        );
-        Process proc;
-        try {
-            proc = pb.start();
-        } catch (IOException ioe) {
-            throw new IOException("Failed to start ffmpeg process. Ensure ffmpeg is installed and FFMPEG_PATH is set if not on PATH.", ioe);
-        }
-
-        // Write input data to ffmpeg stdin
-        try (OutputStream os = proc.getOutputStream()) {
-            os.write(data);
-        }
-
-        byte[] pcmBytes = proc.getInputStream().readAllBytes();
-        try {
-            int exitCode = proc.waitFor();
-            if (exitCode != 0 || pcmBytes.length == 0) {
-                // Try to read error stream for debugging
-                String err = new String(proc.getErrorStream().readAllBytes());
-                log.error("ffmpeg failed (exit {}) converting audio: {}", exitCode, err);
-                throw new IOException("ffmpeg conversion failed, exit=" + exitCode);
-            }
-        } catch (InterruptedException ie) {
-            Thread.currentThread().interrupt();
-            throw new IOException("Interrupted while waiting for ffmpeg", ie);
-        }
-
-        AudioFormat targetFormat = new AudioFormat(
-                AudioFormat.Encoding.PCM_SIGNED,
-                TARGET_SAMPLE_RATE,
-                16,
-                1,
-                2,
-                TARGET_SAMPLE_RATE,
-                false
-        );
-        long frameLength = pcmBytes.length / targetFormat.getFrameSize();
-        return new AudioInputStream(new ByteArrayInputStream(pcmBytes), targetFormat, frameLength);
+    private boolean equalsAscii(byte[] data, int offset, String ascii) {
+        byte[] ref = ascii.getBytes(StandardCharsets.US_ASCII);
+        if (offset + ref.length > data.length) return false;
+        for (int i = 0; i < ref.length; i++) if (data[offset + i] != ref[i]) return false;
+        return true;
     }
 
-    // Attempt JavaSound decode first, then fall back to ffmpeg for unsupported formats like m4a/aac.
-    protected AudioInputStream decodeToPcmMono16k(byte[] data) throws IOException, UnsupportedAudioFileException {
-        try (ByteArrayInputStream bais = new ByteArrayInputStream(data)) {
-            try {
-                AudioInputStream original = AudioSystem.getAudioInputStream(bais);
-                if (original == null) throw new UnsupportedAudioFileException("AudioInputStream is null");
-                AudioFormat originalFormat = original.getFormat();
-                log.debug("Original audio format: {} Hz, {} ch, enc={}, sampleSize={} bits", originalFormat.getSampleRate(), originalFormat.getChannels(), originalFormat.getEncoding(), originalFormat.getSampleSizeInBits());
-
-                // Convert to PCM mono 16k
-                return convertToPcmMono16k(original);
-            } catch (UnsupportedAudioFileException uafe) {
-                log.info("JavaSound cannot decode input ({}). Falling back to ffmpeg...", uafe.toString());
-                // Fall back to ffmpeg for formats like m4a/aac
-                return decodeWithFfmpeg(data);
+    private int findDataChunk(byte[] data, int start) {
+        int i = start;
+        if (i < 12) i = 12;
+        ByteBuffer bb = ByteBuffer.wrap(data).order(ByteOrder.LITTLE_ENDIAN);
+        while (i + 8 <= data.length) {
+            if (equalsAscii(data, i, "data")) return i;
+            if (i + 8 > data.length) break;
+            int size = bb.getInt(i + 4);
+            // Guard against invalid sizes
+            if (size < 0 || i + 8 + size > data.length) {
+                // If invalid, try to continue byte-by-byte to find 'data'
+                i++;
+                continue;
             }
+            i += 8 + size;
         }
+        return -1;
     }
 
     // Character Error Rate (CER) based accuracy: 1 - (editDistance / expectedCharCount). Returns 0 when expected is empty.
@@ -135,7 +101,7 @@ public abstract class SpeechEngine {
     protected String normalizeForCer(String s) {
         if (s == null) return "";
         return s.toLowerCase()
-                .replaceAll("[\\?\\.,!]", "") // remove ? . , !
+                .replaceAll("[?.,!]", "") // remove ? . , !
                 .trim()
                 .replaceAll("\\s+", " ");
     }

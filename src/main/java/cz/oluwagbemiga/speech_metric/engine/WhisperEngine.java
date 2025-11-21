@@ -7,8 +7,6 @@ import io.github.ggerganov.whispercpp.params.WhisperFullParams;
 import io.github.ggerganov.whispercpp.params.WhisperSamplingStrategy;
 import lombok.extern.slf4j.Slf4j;
 
-import javax.sound.sampled.AudioInputStream;
-import javax.sound.sampled.UnsupportedAudioFileException;
 import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -38,7 +36,8 @@ public class WhisperEngine extends SpeechEngine {
                 // Ensure native context is cleaned up on failure
                 try {
                     w.close();
-                } catch (Exception ignored) {
+                } catch (Exception closeEx) {
+                    log.debug("Ignoring Whisper context close failure after init error", closeEx);
                 }
                 throw new IllegalStateException("Failed to load Whisper model at path: " + p, e);
             }
@@ -55,7 +54,7 @@ public class WhisperEngine extends SpeechEngine {
             float[] samples = toPcmMono16kFloat(audioFile.getData());
             recognizedText = transcribe(samples);
         } catch (Exception e) {
-            log.error("Whisper recognition failed for model '{}' and audioFile '{}': {}", name, audioFile.getId(), e.toString(), e);
+            log.error("Whisper recognition failed for model '{}' and audioFile '{}'", name, audioFile.getId(), e);
             recognizedText = ""; // fallback to empty string on failure
         }
         double accuracy = computeAccuracy(expected, recognizedText);
@@ -75,35 +74,25 @@ public class WhisperEngine extends SpeechEngine {
         if (samples == null || samples.length == 0) {
             throw new IOException("Empty audio samples");
         }
-        // Use correct type returned by getFullDefaultParams
         WhisperFullParams params = whisper.getFullDefaultParams(WhisperSamplingStrategy.WHISPER_SAMPLING_BEAM_SEARCH);
-        // conservative defaults similar to snippet; tune if needed
         params.temperature = 0.0f;
         params.temperature_inc = 0.2f;
-        // params.n_threads = Runtime.getRuntime().availableProcessors();
-        // params.language = "en"; // set explicitly if you know the language
-
         return whisper.fullTranscribe(params, samples);
     }
 
-    private float[] toPcmMono16kFloat(byte[] data) throws IOException, UnsupportedAudioFileException {
-        if (data == null || data.length == 0) throw new IOException("Empty audio data");
-        try (AudioInputStream pcm = decodeToPcmMono16k(data)) {
-            byte[] pcmBytes = pcm.readAllBytes();
-            // 16-bit little endian PCM -> float [-1,1]
-            int samples = pcmBytes.length / 2; // 2 bytes per sample
-            float[] out = new float[samples];
-            for (int i = 0, s = 0; i + 1 < pcmBytes.length; i += 2, s++) {
-                int lo = pcmBytes[i] & 0xFF;
-                int hi = pcmBytes[i + 1]; // signed
-                int val = (hi << 8) | lo; // little endian
-                // sign-extend 16-bit
-                short sval = (short) val;
-                out[s] = Math.max(-1.0f, Math.min(1.0f, sval / 32767.0f));
-            }
-            return out;
+    // Convert normalized WAV (PCM s16le mono 16kHz) bytes to float samples [-1,1]
+    private float[] toPcmMono16kFloat(byte[] wav) throws IOException {
+        if (wav == null || wav.length == 0) throw new IOException("Empty audio data");
+        byte[] pcmBytes = extractPcmS16leMono16k(wav);
+        int samples = pcmBytes.length / 2; // 2 bytes per sample
+        float[] out = new float[samples];
+        for (int i = 0, s = 0; i + 1 < pcmBytes.length; i += 2, s++) {
+            int lo = pcmBytes[i] & 0xFF;
+            int hi = pcmBytes[i + 1]; // signed
+            int val = (hi << 8) | lo; // little endian
+            short sval = (short) val;
+            out[s] = Math.max(-1.0f, Math.min(1.0f, sval / 32767.0f));
         }
+        return out;
     }
-
-
 }
