@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * Service handling persistence and aggregation of {@link cz.oluwagbemiga.speech_metric.entity.RecognitionSuite}.
@@ -67,5 +68,31 @@ public class RecognitionSuiteService {
         return new RecognitionSuiteDTO(recognitionSuiteRepository.save(suite));
     }
 
+    /**
+     * Retrieve all RecognitionSuites in the database.
+     * @return list of suite DTOs
+     */
+    public List<RecognitionSuiteDTO> getAllSuites() {
+        log.trace("Fetch all RecognitionSuites");
+        return recognitionSuiteRepository.findAll().stream()
+                .map(RecognitionSuiteDTO::new)
+                .toList();
+    }
 
+    /**
+     * Retrieve all RecognitionSuites owned by a specific user.
+     * @param ownerId user UUID
+     * @return list of suite DTOs for the owner
+     */
+    public List<RecognitionSuiteDTO> getSuitesByOwner(UUID ownerId) {
+        log.trace("Fetch RecognitionSuites ownerId={}", ownerId);
+        return recognitionSuiteRepository.findAllByOwner_Id(ownerId).stream()
+                .map(RecognitionSuiteDTO::new)
+                .toList();
+
+    }
+
+    public RecognitionSuiteDTO getSuiteDTOById(UUID id) {
+        return new RecognitionSuiteDTO(getById(id));
+    }
 }
