@@ -38,7 +38,8 @@ public record RecognitionSuiteDTO(
                                 result.getModelName(),
                                 result.getRecognizedText(),
                                 result.getExpectedText(),
-                                result.getAccuracy()
+                                result.getAccuracy(),
+                                result.getModelProcessingTimeMs()
                         ))
                         .toList(),
                 suite.getOwner().getId(),

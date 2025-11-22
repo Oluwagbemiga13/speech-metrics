@@ -68,21 +68,25 @@ public class VoskEngine extends SpeechEngine {
         log.debug("VoskEngine processAudio start audioFile={} dataBytes={}", audioFile.getId(), audioFile.getData() == null ? 0 : audioFile.getData().length);
         String expected = request.expectedText();
         String recognizedText;
+        long modelProcessingMs = 0L;
         try {
-            recognizedText = recognizeSpeechFromBytes(audioFile.getData());
+            long[] timeRef = new long[1];
+            recognizedText = recognizeSpeechFromBytes(audioFile.getData(), timeRef);
+            modelProcessingMs = timeRef[0];
         } catch (Exception e) {
             log.error("Vosk recognition failed for model '{}' and audioFile '{}'", name, audioFile.getId(), e);
             recognizedText = ""; // fallback to empty string on failure
         }
         double accuracy = computeAccuracy(expected, recognizedText);
-        long elapsedMs = (System.nanoTime() - startNanos) / 1_000_000L;
-        log.info("VoskEngine finished audioFile={} model={} chars={} accuracy={} timeMs={}", audioFile.getId(), name, recognizedText.length(), accuracy, elapsedMs);
+        long totalElapsedMs = (System.nanoTime() - startNanos) / 1_000_000L;
+        log.info("VoskEngine finished audioFile={} model={} chars={} accuracy={} timeMs={} modelOnlyMs={}", audioFile.getId(), name, recognizedText.length(), accuracy, totalElapsedMs, modelProcessingMs);
 
         RecognitionResult result = new RecognitionResult();
         result.setModelName(name);
         result.setRecognizedText(recognizedText);
         result.setExpectedText(expected);
         result.setAccuracy(accuracy);
+        result.setModelProcessingTimeMs(modelProcessingMs);
         result.setAudioFile(audioFile);
         result.setOwner(audioFile.getOwner());
         audioFile.getRecognitionResults().add(result);
@@ -93,18 +97,21 @@ public class VoskEngine extends SpeechEngine {
     /**
      * Performs incremental recognition on raw WAV bytes (PCM s16le mono 16 kHz) and returns final text.
      * Falls back to raw JSON if parsing of the recognizer output fails.
+     * Records model-only processing time (streaming + final result) into the provided timeRef array.
      *
      * @param data WAV container bytes
+     * @param timeRef single-element array to store model processing duration (ms)
      * @return recognized plain text (or raw recognizer JSON on parse failure)
      * @throws IOException if the input audio data is invalid or empty
      */
-    private String recognizeSpeechFromBytes(byte[] data) throws IOException {
+    private String recognizeSpeechFromBytes(byte[] data, long[] timeRef) throws IOException {
         if (data == null || data.length == 0) {
             throw new IOException("Empty audio data");
         }
-        byte[] pcm = extractPcmS16leMono16k(data);
+        byte[] pcm = extractPcmS16leMono16k(data); // preprocessing excluded from modelOnly timing
         int total = pcm.length;
-        log.debug("Starting Vosk streaming recognition pcmBytes={} model={} audioFile?", total, name);
+        log.debug("Starting Vosk streaming recognition pcmBytes={} model={}", total, name);
+        long modelStart = System.nanoTime();
         try (Recognizer recognizer = new Recognizer(model, TARGET_SAMPLE_RATE)) {
             int offset = 0;
             int chunk = 4096;
@@ -117,8 +124,9 @@ public class VoskEngine extends SpeechEngine {
                 offset += len;
                 chunkCount++;
             }
-            log.trace("Vosk streaming complete chunks={} lastChunkSize={} totalBytes={} model={}", chunkCount, Math.min(chunk, pcm.length % chunk), total, name);
             String json = recognizer.getFinalResult();
+            timeRef[0] = (System.nanoTime() - modelStart) / 1_000_000L;
+            log.trace("Vosk streaming complete chunks={} lastChunkSize={} totalBytes={} model={} modelMs={}", chunkCount, Math.min(chunk, pcm.length % chunk), total, name, timeRef[0]);
             try {
                 JsonNode node = OBJECT_MAPPER.readTree(json);
                 String text = node.path("text").asText("");

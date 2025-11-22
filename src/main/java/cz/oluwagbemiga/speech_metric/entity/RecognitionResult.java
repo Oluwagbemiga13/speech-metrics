@@ -38,6 +38,10 @@ public class RecognitionResult {
      * Accuracy score (e.g. CER-based) in range [0,1].
      */
     private double accuracy;
+    /**
+     * Time spent inside underlying model inference (milliseconds). Excludes pre/post processing.
+     */
+    private long modelProcessingTimeMs;
 
     /**
      * Source audio file for this recognition.

@@ -63,7 +63,7 @@ public class RecognitionService {
         AudioFile saved = audioFileService.save(audioFile);
         RecognitionResult persisted = saved.getRecognitionResults().get(saved.getRecognitionResults().size() - 1);
 
-        log.info("Recognition completed audioFileId={} model={} accuracy={}", audioFileId, persisted.getAccuracy());
+        log.info("Recognition completed audioFileId={} model={} accuracy={}", audioFileId, persisted.getModelName(), persisted.getAccuracy());
         return mapToResponse(persisted);
     }
 
@@ -176,9 +176,10 @@ public class RecognitionService {
                 result.getModelName(),
                 result.getRecognizedText(),
                 result.getExpectedText(),
-                result.getAccuracy()
+                result.getAccuracy(),
+                result.getModelProcessingTimeMs()
         );
-        log.trace("Mapped RecognitionResult id={} model={} accuracy={}", result.getId(), result.getModelName(), result.getAccuracy());
+        log.trace("Mapped RecognitionResult id={} model={} accuracy={} modelMs={}", result.getId(), result.getModelName(), result.getAccuracy(), result.getModelProcessingTimeMs());
         return response;
     }
 

@@ -64,7 +64,8 @@ public class RecognitionController {
                 persisted.getModelName(),
                 persisted.getRecognizedText(),
                 persisted.getExpectedText(),
-                persisted.getAccuracy()
+                persisted.getAccuracy(),
+                persisted.getModelProcessingTimeMs()
         );
         return ResponseEntity.ok(response);
     }

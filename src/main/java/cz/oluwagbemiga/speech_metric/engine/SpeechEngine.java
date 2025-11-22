@@ -171,6 +171,14 @@ public abstract class SpeechEngine {
             log.debug("Accuracy short-circuit: expected blank after normalization original='{}'", expected);
             return 0.0d;
         }
+        // Remove any occurrences of the placeholder token (case-insensitive) inside the recognized text
+        if (recognized != null && recognized.toLowerCase().contains("[blank_audio]")) {
+            String original = recognized;
+            recognized = recognized.replaceAll("(?i)\\[blank_audio\\]", " "); // replace with space to preserve word boundaries
+            // collapse multiple spaces after removal
+            recognized = recognized.replaceAll("\\s+", " ").trim();
+            log.debug("Accuracy: stripped '[BLANK_AUDIO]' placeholders originalLen={} newLen={}", original.length(), recognized.length());
+        }
         String rec = normalizeForCer(recognized == null ? "" : recognized);
         int distance = levenshteinChars(exp, rec);
         double acc = Math.max(0d, 1d - (double) distance / exp.length());

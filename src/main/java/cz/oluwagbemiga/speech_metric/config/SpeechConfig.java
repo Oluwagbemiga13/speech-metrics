@@ -22,6 +22,18 @@ public class SpeechConfig {
     @Value("${speech.whisper.base-model-path:/app/models/ggml-base.en.bin}")
     private String whisperBaseModelPathCfg;
 
+    @Value("${speech.whisper.large-v3-turbo-q5-model-path:/app/models/ggml-large-v3-turbo-q5_0.bin}")
+    private String whisperLargeV3TurboQ5ModelPathCfg;
+
+    @Value("${speech.whisper.medium-en-q5-model-path:/app/models/ggml-medium.en-q5_0.bin}")
+    private String whisperMediumEnQ5ModelPathCfg;
+
+    @Value("${speech.whisper.small-en-q5_1-model-path:/app/models/ggml-small.en-q5_1.bin}")
+    private String whisperSmallQ51ModelPathCfg;
+
+    @Value("${speech.whisper.small-en-q8_0-model-path:/app/models/ggml-small.en-q8_0.bin}")
+    private String whisperSmallQ8ModelPathCfg;
+
     private String resolvePath(String configured, String fallbackRelative) {
         Path cfg = Path.of(configured);
         if (Files.isDirectory(cfg)) {
@@ -46,8 +58,8 @@ public class SpeechConfig {
         if (Files.isRegularFile(fallback)) {
             return fallback.toString();
         }
-        // last resort: return configured (WhisperEngine will throw a clear error)
-        return fallbackRelative; // TODO: FIX it should not return fallbackRelative but configured'
+        // last resort: return configured (WhisperEngine will throw a clear error if invalid)
+        return configured;
     }
 
 
@@ -71,28 +83,26 @@ public class SpeechConfig {
 
     @Bean(name = "whisperLargeV3TurboQ5Engine")
     public WhisperEngine whisperLargeV3TurboQ5Engine() {
-        String resolved = resolveFile(whisperBaseModelPathCfg, "src/main/resources/model/ggml-large-v3-turbo-q5_0.bin");
+        String resolved = resolveFile(whisperLargeV3TurboQ5ModelPathCfg, "src/main/resources/model/ggml-large-v3-turbo-q5_0.bin");
         return new WhisperEngine(resolved);
     }
 
     @Bean(name = "whisperMediumEnQ5Engine")
     public WhisperEngine whisperMediumEnQ5Engine() {
-        String resolved = resolveFile(whisperBaseModelPathCfg, "src/main/resources/model/ggml-medium.en-q5_0.bin");
+        String resolved = resolveFile(whisperMediumEnQ5ModelPathCfg, "src/main/resources/model/ggml-medium.en-q5_0.bin");
         return new WhisperEngine(resolved);
     }
 
     @Bean(name = "whisperSmallQ51Engine")
     public WhisperEngine whisperSmallQ51Engine() {
-        String resolved = resolveFile(whisperBaseModelPathCfg, "src/main/resources/model/ggml-small.en-q5_1.bin");
+        String resolved = resolveFile(whisperSmallQ51ModelPathCfg, "src/main/resources/model/ggml-small.en-q5_1.bin");
         return new WhisperEngine(resolved);
     }
 
     @Bean(name = "whisperSmallQ8Engine")
     public WhisperEngine whisperSmallQ8Engine() {
-        String resolved = resolveFile(whisperBaseModelPathCfg, "src/main/resources/model/ggml-small.en-q8_0.bin");
+        String resolved = resolveFile(whisperSmallQ8ModelPathCfg, "src/main/resources/model/ggml-small.en-q8_0.bin");
         return new WhisperEngine(resolved);
     }
 
 }
-
-

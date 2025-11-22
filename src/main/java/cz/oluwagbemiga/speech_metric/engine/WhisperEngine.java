@@ -78,23 +78,27 @@ public class WhisperEngine extends SpeechEngine {
         log.debug("WhisperEngine processAudio start audioFile={} dataBytes={}", audioFile.getId(), audioFile.getData() == null ? 0 : audioFile.getData().length);
         String expected = request.expectedText();
         String recognizedText;
+        long modelProcessingMs = 0L;
         try {
             float[] samples = toPcmMono16kFloat(audioFile.getData());
             log.trace("Converted WAV to float samples count={}", samples.length);
+            long modelStart = System.nanoTime();
             recognizedText = transcribe(samples);
+            modelProcessingMs = (System.nanoTime() - modelStart) / 1_000_000L;
         } catch (Exception e) {
             log.error("Whisper recognition failed for model '{}' and audioFile '{}'", name, audioFile.getId(), e);
             recognizedText = ""; // fallback to empty string on failure
         }
         double accuracy = computeAccuracy(expected, recognizedText);
-        long elapsedMs = (System.nanoTime() - startNanos) / 1_000_000L;
-        log.info("WhisperEngine finished audioFile={} model={} chars={} accuracy={} timeMs={}", audioFile.getId(), name, recognizedText.length(), accuracy, elapsedMs);
+        long totalElapsedMs = (System.nanoTime() - startNanos) / 1_000_000L;
+        log.info("WhisperEngine finished audioFile={} model={} chars={} accuracy={} timeMs={} modelOnlyMs={}", audioFile.getId(), name, recognizedText.length(), accuracy, totalElapsedMs, modelProcessingMs);
 
         RecognitionResult result = new RecognitionResult();
         result.setModelName(name);
         result.setRecognizedText(recognizedText);
         result.setExpectedText(expected);
         result.setAccuracy(accuracy);
+        result.setModelProcessingTimeMs(modelProcessingMs);
         result.setAudioFile(audioFile);
         result.setOwner(audioFile.getOwner());
         audioFile.getRecognitionResults().add(result);
