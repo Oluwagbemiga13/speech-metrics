@@ -34,3 +34,5 @@ build/
 
 # Ignore large Vosk models
 /src/main/resources/model/
+
+.env
