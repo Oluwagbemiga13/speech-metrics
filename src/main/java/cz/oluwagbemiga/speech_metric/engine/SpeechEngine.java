@@ -2,6 +2,7 @@ package cz.oluwagbemiga.speech_metric.engine;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import cz.oluwagbemiga.speech_metric.entity.RecognitionResult;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -21,12 +22,14 @@ import java.nio.charset.StandardCharsets;
  * container with PCM signed 16-bit little-endian, mono, 16 kHz samples.
  */
 @Slf4j
+@Getter
 public abstract class SpeechEngine {
 
     protected static final float TARGET_SAMPLE_RATE = 16000.0f;
     protected static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     protected final String pathToModel;
-    protected String name;
+    protected final String rawModelName;
+    protected final String name;
 
     /**
      * Constructs a speech engine with a path to the underlying model resources.
@@ -36,11 +39,33 @@ public abstract class SpeechEngine {
      */
     protected SpeechEngine(String pathToModel) {
         this.pathToModel = pathToModel;
-        pathToModel = pathToModel.replace("\\", "/");
-        name = pathToModel
-                .substring(pathToModel.lastIndexOf("/") + 1)
-                .replace(".bin", "");
-        log.info("Initialized SpeechEngine name={} modelPath={}", name, this.pathToModel);
+        String normalizedPath = pathToModel.replace("\\", "/");
+        this.rawModelName = normalizedPath
+                .substring(normalizedPath.lastIndexOf("/") + 1)
+                .replaceAll("\\.(bin|model)$", "");
+        this.name = slugifyName(rawModelName);
+        log.info("Initialized SpeechEngine name={} rawModelName={} modelPath={}", name, rawModelName, this.pathToModel);
+    }
+
+    /**
+     * Converts a source string into a slug suitable for model naming.
+     * Non-alphanumeric characters are replaced with hyphens, and
+     * the result is lowercased. If the source is null or blank,
+     * returns the default "model".
+     *
+     * @param source input string to slugify
+     * @return slugified string
+     */
+    private String slugifyName(String source) {
+        if (source == null || source.isBlank()) {
+            return "model";
+        }
+        String slug = source
+                .trim()
+                .toLowerCase()
+                .replaceAll("[^a-z0-9]+", "-")
+                .replaceAll("^-+|-+$", "");
+        return slug.isBlank() ? "model" : slug;
     }
 
     /**

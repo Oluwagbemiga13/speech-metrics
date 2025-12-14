@@ -8,6 +8,7 @@ import cz.oluwagbemiga.speech_metric.engine.SpeechEngine;
 import cz.oluwagbemiga.speech_metric.entity.AudioFile;
 import cz.oluwagbemiga.speech_metric.entity.RecognitionResult;
 import cz.oluwagbemiga.speech_metric.entity.RecognitionSuite;
+import cz.oluwagbemiga.speech_metric.repository.RecognitionResultRepository;
 import cz.oluwagbemiga.speech_metric.repository.RecognitionSuiteRepository;
 import cz.oluwagbemiga.speech_metric.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +37,7 @@ public class RecognitionService {
     private final EngineService engineService;
     private final AudioFileService audioFileService;
     private final RecognitionSuiteRepository recognitionSuiteRepository;
+    private final RecognitionResultRepository recognitionResultRepository;
     private final UserRepository userRepository;
 
 
@@ -183,5 +185,23 @@ public class RecognitionService {
         return response;
     }
 
+    /**
+     * Returns all recognition results produced by the specified model.
+     *
+     * @param modelName engine identifier (case-insensitive)
+     * @return list of recognition responses filtered by model name
+     */
+    @Transactional(readOnly = true)
+    public List<RecognitionResponse> getResultsByModel(String modelName) {
+        if (modelName == null || modelName.isBlank()) {
+            log.warn("getResultsByModel called with blank model name");
+            return List.of();
+        }
 
+        log.debug("Fetching recognition results for modelName={}", modelName);
+        return recognitionResultRepository.findAllByModelNameIgnoreCase(modelName)
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
 }

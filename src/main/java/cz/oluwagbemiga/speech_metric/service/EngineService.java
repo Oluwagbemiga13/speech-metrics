@@ -37,20 +37,18 @@ public class EngineService {
      */
     public SpeechEngine getEngineByName(String engineName) {
         log.debug("Engine lookup requested name={}", engineName);
-        try {
-            return switch (engineName) {
-                case "vosk-large" -> voskLargeEngine;
-                case "vosk-small" -> voskSmallEngine;
-                case "whisper-base" -> whisperBaseEngine;
-                case "whisper-medium-en-q5" -> whisperMediumEnQ5Engine;
-                case "whisper-small-q51" -> whisperSmallQ51Engine;
-                case "whisper-small-q8" -> whisperSmallQ8Engine;
-                default -> throw new EngineNotFound(engineName);
-            };
-        } catch (EngineNotFound ex) {
-            log.warn("Engine not found name={}", engineName);
-            throw ex;
+        if (engineName == null || engineName.isBlank()) {
+            log.warn("Engine lookup with blank name");
+            throw new EngineNotFound("<blank>");
         }
+
+        return getAllEngines().stream()
+                .filter(engine -> engine.getName().equalsIgnoreCase(engineName))
+                .findFirst()
+                .orElseThrow(() -> {
+                    log.warn("Engine not found name={}", engineName);
+                    return new EngineNotFound(engineName);
+                });
     }
 
     /**
@@ -77,14 +75,10 @@ public class EngineService {
      * @return immutable list of engine names
      */
     public List<String> getAllEngineNames() {
-        var names = List.of(
-                "vosk-large",
-                "vosk-small",
-                "whisper-base",
-                "whisper-medium-en-q5",
-                "whisper-small-q51",
-                "whisper-small-q8"
-        );
+        var names = getAllEngines()
+                .stream()
+                .map(SpeechEngine::getName)
+                .toList();
         log.trace("Returning engine names count={}", names.size());
         return names;
     }
