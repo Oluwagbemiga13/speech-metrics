@@ -16,8 +16,9 @@ import java.util.UUID;
 @Mapper(componentModel = "spring")
 public interface UserMapper extends GenericMapper<User, UserDTO> {
 
-    // Explicitly map audioFiles -> audioFileIds using helper to avoid any implicit conversions
+    // Explicitly map id and audioFiles -> audioFileIds using helper to avoid any implicit conversions
     @Override
+    @Mapping(target = "id", source = "id")
     @Mapping(target = "audioFileIds", expression = "java(mapAudioIds(entity))")
     UserDTO toDto(User entity);
 

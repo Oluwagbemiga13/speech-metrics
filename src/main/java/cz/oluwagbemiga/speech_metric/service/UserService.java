@@ -38,20 +38,6 @@ public class UserService {
 
     private final FfmpegService ffmpegService;
 
-    /**
-     * Creates and persists a new user with given username.
-     *
-     * @param username unique username
-     * @return persisted user DTO
-     */
-    public UserDTO saveUser(String username) {
-        log.debug("Creating user username={}", username);
-        var userEntity = new User();
-        userEntity.setUsername(username);
-        var savedUser = userRepository.save(userEntity);
-        log.info("Created user id={} username={}", savedUser.getId(), savedUser.getUsername());
-        return userMapper.toDto(savedUser);
-    }
 
     /**
      * Deletes user by username.

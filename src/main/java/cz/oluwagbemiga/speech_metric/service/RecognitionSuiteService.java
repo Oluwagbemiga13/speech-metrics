@@ -4,14 +4,16 @@ package cz.oluwagbemiga.speech_metric.service;
 import cz.oluwagbemiga.speech_metric.dto.RecognitionSuiteDTO;
 import cz.oluwagbemiga.speech_metric.entity.RecognitionResult;
 import cz.oluwagbemiga.speech_metric.entity.RecognitionSuite;
+import cz.oluwagbemiga.speech_metric.entity.Role;
+import cz.oluwagbemiga.speech_metric.exception.NotAuthorizedException;
 import cz.oluwagbemiga.speech_metric.repository.RecognitionSuiteRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 /**
  * Service handling persistence and aggregation of {@link cz.oluwagbemiga.speech_metric.entity.RecognitionSuite}.
@@ -25,6 +27,7 @@ public class RecognitionSuiteService {
 
     private final RecognitionSuiteRepository recognitionSuiteRepository;
 
+
     /**
      * Get suite by id.
      *
@@ -33,9 +36,19 @@ public class RecognitionSuiteService {
      * @throws RuntimeException if not found (consider custom exception later)
      */
     public RecognitionSuite getById(UUID id) {
-        log.trace("Fetch RecognitionSuite id={}", id);
-        return recognitionSuiteRepository.findById(id)
+        if(SecurityContextHolder.getContext().getAuthentication().getAuthorities().contains(Role.ADMIN.getAuthority())){
+            log.trace("Fetch RecognitionSuite id={}", id);
+            return recognitionSuiteRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("RecognitionSuite not found with id: " + id));
+        }
+        String principal = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        RecognitionSuite recognitionSuite = recognitionSuiteRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("RecognitionSuite not found with id: " + id));
+        if(recognitionSuite.getOwner().getId().toString().equals(principal)){
+            log.trace("Fetch RecognitionSuite id={}", id);
+            return recognitionSuite;
+        }
+        throw new NotAuthorizedException("Not authorized to access RecognitionSuite with id: " + id);
     }
 
     /**
@@ -51,42 +64,34 @@ public class RecognitionSuiteService {
         return new RecognitionSuiteDTO(recognitionSuiteRepository.save(suite));
     }
 
-    /**
-     * Append results to existing suite, then persist changes.
-     *
-     * @param suiteId target suite UUID
-     * @param results additional results to merge
-     * @return updated suite DTO
-     */
-    public RecognitionSuiteDTO addResults(UUID suiteId, List<RecognitionResult> results) {
-        log.debug("Add results to suite suiteId={} addCount={}", suiteId, results == null ? 0 : results.size());
-        RecognitionSuite suite = getById(suiteId);
-        List<RecognitionResult> existingResults = suite.getRecognitionResults();
-        existingResults.addAll(results);
-        suite.setRecognitionResults(existingResults);
-        log.info("Suite updated suiteId={} totalResults={}", suiteId, existingResults.size());
-        return new RecognitionSuiteDTO(recognitionSuiteRepository.save(suite));
-    }
 
     /**
      * Retrieve all RecognitionSuites in the database.
+     *
      * @return list of suite DTOs
      */
     public List<RecognitionSuiteDTO> getAllSuites() {
-        log.trace("Fetch all RecognitionSuites");
-        return recognitionSuiteRepository.findAll().stream()
-                .map(RecognitionSuiteDTO::new)
-                .toList();
+        if(SecurityContextHolder.getContext().getAuthentication().getAuthorities().toString().contains(Role.ADMIN.getAuthority())){
+            log.trace("Fetch all RecognitionSuites");
+            return recognitionSuiteRepository.findAll().stream()
+                    .map(RecognitionSuiteDTO::new)
+                    .toList();
+        }
+        else{
+            return getSuitesByOwner();
+        }
     }
 
     /**
      * Retrieve all RecognitionSuites owned by a specific user.
-     * @param ownerId user UUID
+     *
+     *
      * @return list of suite DTOs for the owner
      */
-    public List<RecognitionSuiteDTO> getSuitesByOwner(UUID ownerId) {
-        log.trace("Fetch RecognitionSuites ownerId={}", ownerId);
-        return recognitionSuiteRepository.findAllByOwner_Id(ownerId).stream()
+    public List<RecognitionSuiteDTO> getSuitesByOwner() {
+        String principal = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        log.trace("Fetch RecognitionSuites ownerId={}", principal);
+        return recognitionSuiteRepository.findAllByOwner_Id(UUID.fromString(principal)).stream()
                 .map(RecognitionSuiteDTO::new)
                 .toList();
 
@@ -94,5 +99,22 @@ public class RecognitionSuiteService {
 
     public RecognitionSuiteDTO getSuiteDTOById(UUID id) {
         return new RecognitionSuiteDTO(getById(id));
+    }
+
+    /**
+     * Retrieve all RecognitionSuites owned by a specific user (admin access).
+     *
+     * @param userId the user's UUID
+     * @return list of suite DTOs for the specified user
+     */
+    public List<RecognitionSuiteDTO> getSuitesByUserId(UUID userId) {
+        if (userId == null) {
+            log.warn("getSuitesByUserId called with null userId");
+            return List.of();
+        }
+        log.trace("Fetch RecognitionSuites for userId={}", userId);
+        return recognitionSuiteRepository.findAllByOwner_Id(userId).stream()
+                .map(RecognitionSuiteDTO::new)
+                .toList();
     }
 }

@@ -5,9 +5,12 @@ import cz.oluwagbemiga.speech_metric.dto.UploadResponse;
 import cz.oluwagbemiga.speech_metric.service.AudioFileService;
 import cz.oluwagbemiga.speech_metric.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.security.SecurityScheme;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
@@ -23,6 +26,12 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api")
 @RequiredArgsConstructor
+@SecurityScheme(
+        name = "bearerAuth",
+        type = SecuritySchemeType.HTTP,
+        scheme = "bearer",
+        bearerFormat = "JWT"
+)
 @Tag(name = "Audio File API", description = "CRUD operations for audio files")
 public class AudioFileController {
 
@@ -32,6 +41,7 @@ public class AudioFileController {
     // Create: upload an audio file for a user. Returns updated UserDTO containing audioFileIds.
     @PostMapping(path = "/users/{userId}/audio-files", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Upload audio file for a user",
+            security = @SecurityRequirement(name = "bearerAuth"),
             description = "Uploads a single audio file for the given user and returns the UploadResponse.")
     @ApiResponse(responseCode = "201", description = "File uploaded",
             content = @Content(mediaType = "application/json", schema = @Schema(implementation = UploadResponse.class)))
@@ -42,7 +52,9 @@ public class AudioFileController {
 
     // Read: download raw file bytes by ID
     @GetMapping("/audio-files/{id}")
-    @Operation(summary = "Download audio file by ID")
+    @Operation(summary = "Download audio file by ID",
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
     @ApiResponse(responseCode = "200", description = "File bytes returned")
     public ResponseEntity<byte[]> download(@PathVariable UUID id) {
         AudioFileDTO file = audioFileService.getDtoById(id);
@@ -55,6 +67,7 @@ public class AudioFileController {
     // Get audio file DTO by ID
     @GetMapping("/audio-files/{id}/dto")
     @Operation(summary = "Get audio file DTO by ID",
+            security = @SecurityRequirement(name = "bearerAuth"),
             description = "Returns audio file metadata and content (base64-encoded) as JSON")
     @ApiResponse(responseCode = "200", description = "Audio file DTO returned",
             content = @Content(mediaType = "application/json", schema = @Schema(implementation = AudioFileDTO.class)))
@@ -64,7 +77,9 @@ public class AudioFileController {
 
     // List: all audio file IDs for a user
     @GetMapping("/users/{userId}/audio-files")
-    @Operation(summary = "List a user's audio file IDs")
+    @Operation(summary = "List a user's audio file IDs",
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
     @ApiResponse(responseCode = "200", description = "List of audio file IDs")
     public ResponseEntity<List<UUID>> listByUser(@PathVariable UUID userId) {
         return ResponseEntity.ok(audioFileService.getIdsByUserId(userId));
@@ -73,6 +88,7 @@ public class AudioFileController {
     // List: all audio files for a user as DTOs
     @GetMapping("/users/{userId}/audio-files/dto")
     @Operation(summary = "List a user's audio files as DTOs",
+            security = @SecurityRequirement(name = "bearerAuth"),
             description = "Returns all audio files for the user, including metadata and base64-encoded content")
     @ApiResponse(responseCode = "200", description = "List of AudioFileDto returned",
             content = @Content(mediaType = "application/json", schema = @Schema(implementation = AudioFileDTO.class)))
@@ -82,7 +98,8 @@ public class AudioFileController {
 
     // Delete: delete audio file by ID
     @DeleteMapping("/audio-files/{id}")
-    @Operation(summary = "Delete audio file by ID")
+    @Operation(summary = "Delete audio file by ID",
+            security = @SecurityRequirement(name = "bearerAuth"))
     @ApiResponse(responseCode = "204", description = "File deleted")
     public ResponseEntity<Void> delete(@PathVariable UUID id) {
         audioFileService.deleteAudioFileById(id);
@@ -91,7 +108,8 @@ public class AudioFileController {
 
     // Update: rename a file by ID
     @PatchMapping("/audio-files/{id}")
-    @Operation(summary = "Rename audio file by ID")
+    @Operation(summary = "Rename audio file by ID",
+            security = @SecurityRequirement(name = "bearerAuth"))
     @ApiResponse(responseCode = "204", description = "File renamed")
     public ResponseEntity<Void> rename(@PathVariable UUID id, @RequestParam String fileName) {
         audioFileService.rename(id, fileName);

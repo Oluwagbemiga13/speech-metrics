@@ -1,6 +1,7 @@
 package cz.oluwagbemiga.speech_metric.service;
 
 
+import cz.oluwagbemiga.speech_metric.dto.EngineOverviewDTO;
 import cz.oluwagbemiga.speech_metric.dto.RecognitionResponse;
 import cz.oluwagbemiga.speech_metric.dto.RecognitionSuiteDTO;
 import cz.oluwagbemiga.speech_metric.engine.RecognitionRequest;
@@ -202,6 +203,90 @@ public class RecognitionService {
         return recognitionResultRepository.findAllByModelNameIgnoreCase(modelName)
                 .stream()
                 .map(this::mapToResponse)
+                .toList();
+    }
+
+    /**
+     * Returns all recognition results for a specific user.
+     *
+     * @param userId the user's UUID
+     * @return list of recognition responses for the user
+     */
+    @Transactional(readOnly = true)
+    public List<RecognitionResponse> getResultsByUser(UUID userId) {
+        if (userId == null) {
+            log.warn("getResultsByUser called with null userId");
+            return List.of();
+        }
+
+        log.debug("Fetching recognition results for userId={}", userId);
+        return recognitionResultRepository.findAllByOwnerId(userId)
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
+    /**
+     * Returns an overview of a specific engine's performance.
+     *
+     * @param engineName the engine name to get overview for
+     * @return EngineOverviewDTO with aggregated statistics
+     */
+    @Transactional(readOnly = true)
+    public EngineOverviewDTO getEngineOverview(String engineName) {
+        if (engineName == null || engineName.isBlank()) {
+            log.warn("getEngineOverview called with blank engine name");
+            return null;
+        }
+
+        log.debug("Building engine overview for engineName={}", engineName);
+        List<RecognitionResult> results = recognitionResultRepository.findAllByModelNameIgnoreCase(engineName);
+
+        if (results.isEmpty()) {
+            log.info("No results found for engine={}", engineName);
+            return new EngineOverviewDTO(engineName, List.of(), 0.0, 0, 0.0);
+        }
+
+        List<UUID> resultIds = results.stream()
+                .map(RecognitionResult::getId)
+                .toList();
+
+        double averageAccuracy = results.stream()
+                .mapToDouble(RecognitionResult::getAccuracy)
+                .average()
+                .orElse(0.0);
+
+        double averageProcessingTime = results.stream()
+                .mapToLong(RecognitionResult::getModelProcessingTimeMs)
+                .average()
+                .orElse(0.0);
+
+        double totalAccuracyPercentage = averageAccuracy * 100;
+
+        log.info("Engine overview built for engine={} totalResults={} avgAccuracy={}%",
+                engineName, results.size(), String.format("%.2f", totalAccuracyPercentage));
+
+        return new EngineOverviewDTO(
+                engineName,
+                resultIds,
+                totalAccuracyPercentage,
+                results.size(),
+                averageProcessingTime
+        );
+    }
+
+    /**
+     * Returns overviews for all available engines.
+     *
+     * @return list of EngineOverviewDTO for all engines
+     */
+    @Transactional(readOnly = true)
+    public List<EngineOverviewDTO> getAllEngineOverviews() {
+        log.debug("Building overviews for all engines");
+        List<String> engineNames = engineService.getAllEngineNames();
+
+        return engineNames.stream()
+                .map(this::getEngineOverview)
                 .toList();
     }
 }

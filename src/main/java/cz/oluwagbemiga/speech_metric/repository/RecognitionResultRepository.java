@@ -1,6 +1,7 @@
 package cz.oluwagbemiga.speech_metric.repository;
 
 import cz.oluwagbemiga.speech_metric.entity.RecognitionResult;
+import cz.oluwagbemiga.speech_metric.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -12,5 +13,9 @@ import java.util.UUID;
 public interface RecognitionResultRepository extends JpaRepository<RecognitionResult, UUID> {
 
     List<RecognitionResult> findAllByModelNameIgnoreCase(String modelName);
+
+    List<RecognitionResult> findAllByOwner(User owner);
+
+    List<RecognitionResult> findAllByOwnerId(UUID ownerId);
 }
 
